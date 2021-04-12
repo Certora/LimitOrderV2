@@ -1,11 +1,16 @@
 
 using DummyERC20A as tokenA
 using DummyERC20B as tokenB
-using SimpleOrderReceiver as receiver 
+using SimpleOrderReceiver as receiver
 
 methods {
+	receiverHarness() returns (address) envfree
+	tokenInHarness() returns (address) envfree
+	tokenOutHarness() returns (address) envfree
+	orderHarness() returns (OrderArgs) envfree
+	
 	// removed memory and calldata modifiers in the next signature. ok?
-	// fillOrderHarness(OrderArgs order, IERC20 tokenIn, IERC20 tokenOut, ILimitOrderReceiver receiver) envfree 
+	// fillOrder(OrderArgs order, IERC20 tokenIn, IERC20 tokenOut, ILimitOrderReceiver receiver) envfree 
 	// swipeFees(IERC20 token) envfree
 	// swipe (IERC20 token) envfree
 
@@ -29,6 +34,10 @@ definition MAX_UINT256() returns uint256 =
 rule sanity1() {
 	env e;
 	calldataarg args;
-	fillOrder(e, args);
+	require receiverHarness() == receiver;
+	require tokenInHarness() == tokenA;
+	require tokenOutHarness() == tokenB;
+	
+	fillOrderHarness(e, args);
 	assert false;
 }
