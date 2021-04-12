@@ -1,5 +1,5 @@
 # Node
-node_modules/
+#node_modules/
 
 # Hardhat
 cache/
@@ -17,3 +17,7 @@ typechain/
 # Coverage
 coverage/
 coverage.json
+
+#certora
+.certora*
+.last_confs/*

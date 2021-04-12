@@ -2,7 +2,7 @@
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringOwnable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
@@ -40,7 +40,7 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
     bytes32 private constant ORDER_TYPEHASH = keccak256("LimitOrder(address maker,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut,address recipient,uint256 startTime,uint256 endTime,uint256 stopPrice,address oracleAddress,bytes32 oracleData)");
     bytes32 private immutable _DOMAIN_SEPARATOR;
     uint256 public immutable deploymentChainId;
-    IBentoBoxV1 private immutable bentoBox;
+    IBentoBoxV1 public immutable bentoBox;
 
     uint256 public constant FEE_DIVISOR=1e6;
     
