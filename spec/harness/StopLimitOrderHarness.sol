@@ -17,12 +17,40 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	ILimitOrderReceiver public receiverHarness;
 	IERC20 public tokenInHarness;
 	IERC20 public tokenOutHarness;
-	uint256 amountInHarness;
+	
+	uint256 public amountInHarness;
+	uint256 public amountOutHarness; 
+    address public recipientHarness; 
+    uint256 public startTimeHarness;
+    uint256 public endTimeHarness;
+    uint256 public stopPriceHarness;
+    IOracle public oracleAddressHarness;
+    bytes public oracleDataHarness;
+    uint256 public amountToFillHarness;
+	uint8 public vHarness; 
+    bytes32 public rHarness;
+    bytes32 public sHarness;
+
+	function requireOrderParams(OrderArgs memory order) internal view {
+		require(order.amountIn == amountInHarness);
+		require(order.amountOut == amountOutHarness);
+		require(order.recipient == recipientHarness);
+		require(order.startTime == startTimeHarness);
+	 	require(order.endTime == endTimeHarness);
+		require(order.stopPrice == stopPriceHarness);
+	    require(order.oracleAddress == oracleAddressHarness);
+    	// require(order.oracleData == oracleDataHarness);
+    	require(order.amountToFill == amountToFillHarness);
+		require(order.v == vHarness); 
+    	require(order.r == rHarness);
+    	require(order.s == sHarness);
+	}
+
 
 	function fillOrderHarness(OrderArgs memory order, bytes calldata data)
     public {
-		require(order.amountIn == amountInHarness);
-	 	fillOrder(order, tokenInHarness, tokenOutHarness, receiverHarness, data);
+		requireOrderParams(order);
+		fillOrder(order, tokenInHarness, tokenOutHarness, receiverHarness, data);
 	}
 
 }
