@@ -7,9 +7,22 @@ methods {
 	receiverHarness() returns (address) envfree
 	tokenInHarness() returns (address) envfree
 	tokenOutHarness() returns (address) envfree
-	
-	// removed memory and calldata modifiers in the next signature. ok?
-	// fillOrder(OrderArgs order, IERC20 tokenIn, IERC20 tokenOut, ILimitOrderReceiver receiver) envfree 
+	amountInHarness() returns (uint256) envfree
+	amountOutHarness() returns (uint256) envfree
+    recipientHarness() returns (address) envfree 
+    startTimeHarness() returns (uint256) envfree
+    endTimeHarness() returns (uint256) envfree
+    stopPriceHarness() returns (uint256) envfree
+    oracleAddressHarness() returns (address) envfree
+//    oracleDataHarness() returns (bytes) envfree
+    amountToFillHarness() returns (uint256) envfree
+	vHarness() returns (uint8) envfree
+    rHarness() returns (bytes32) envfree
+    sHarness() returns (bytes32) envfree
+
+	fillOrderHarness(address,uint256,uint256,address,uint256,uint256,uint256,address,bytes,uint256,uint8,bytes32,bytes32,bytes) envfree
+
+
 	// swipeFees(IERC20 token) envfree
 	// swipe (IERC20 token) envfree
 
@@ -36,9 +49,17 @@ rule sanity1() {
 	env e;
 	calldataarg args;
 	require receiverHarness() == receiver;
-	// require tokenInHarness() == tokenA;
-	// require tokenOutHarness() == tokenB;
+	require tokenInHarness() == tokenA;
+	require tokenOutHarness() == tokenB;
+
+	require amountInHarness() == 100;
+	require amountOutHarness() == 200;
+	require recipientHarness() == this // I want StopLimitOrderHarness's address here; 
+    // uint256 public startTimeHarness;
+    // uint256 public endTimeHarness;
+    require oracleAddressHarness() == 0;
+	require amountToFillHarness() == 50;
 	
-	fillOrder(e, args);
+	sinvoke fillOrderHarness(args);
 	assert false;
 }
