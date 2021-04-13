@@ -7,7 +7,6 @@ methods {
 	receiverHarness() returns (address) envfree
 	tokenInHarness() returns (address) envfree
 	tokenOutHarness() returns (address) envfree
-	orderHarness() returns (OrderArgs) envfree
 	
 	// removed memory and calldata modifiers in the next signature. ok?
 	// fillOrder(OrderArgs order, IERC20 tokenIn, IERC20 tokenOut, ILimitOrderReceiver receiver) envfree 
@@ -17,6 +16,8 @@ methods {
     // setFees(address _feeTo, uint256 _externalOrderFee)
  	// whiteListReceiver(ILimitOrderReceiver receiver) 
 	// cancelOrder(bytes32 hash)
+
+	onLimitOrder(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountMinOut, bytes data) => DISPATCHER(true)
 }
 
 
@@ -35,9 +36,9 @@ rule sanity1() {
 	env e;
 	calldataarg args;
 	require receiverHarness() == receiver;
-	require tokenInHarness() == tokenA;
-	require tokenOutHarness() == tokenB;
+	// require tokenInHarness() == tokenA;
+	// require tokenOutHarness() == tokenB;
 	
-	fillOrderHarness(e, args);
+	fillOrder(e, args);
 	assert false;
 }

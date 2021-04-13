@@ -17,12 +17,12 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	ILimitOrderReceiver public receiverHarness;
 	IERC20 public tokenInHarness;
 	IERC20 public tokenOutHarness;
-	OrderArgs public orderHarness;
+	uint256 amountInHarness;
 
-	function fillOrderHarness(
-            bytes calldata data)
+	function fillOrderHarness(OrderArgs memory order, bytes calldata data)
     public {
-		fillOrder(orderHarness, tokenInHarness, tokenOutHarness, receiverHarness, data);
+		require(order.amountIn == amountInHarness);
+	 	fillOrder(order, tokenInHarness, tokenOutHarness, receiverHarness, data);
 	}
 
 }
