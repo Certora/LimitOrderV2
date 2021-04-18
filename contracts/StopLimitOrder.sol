@@ -97,10 +97,45 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
         return chainId == deploymentChainId ? _DOMAIN_SEPARATOR : _calculateDomainSeparator(chainId);
     }
 
-    function _getDigest(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut) internal view returns(bytes32 digest) {
-        bytes32 encoded = keccak256(
-            abi.encode(
-                ORDER_TYPEHASH,
+    // function _getDigest(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut) internal view returns(bytes32 digest) {
+    //     bytes32 encoded = keccak256(
+    //         abi.encode(
+    //             ORDER_TYPEHASH,
+    //             order.maker,
+    //             tokenIn,
+    //             tokenOut,
+    //             order.amountIn,
+    //             order.amountOut,
+    //             order.recipient,
+    //             order.startTime,
+    //             order.endTime,
+    //             order.stopPrice,
+    //             order.oracleAddress,
+    //             order.oracleData
+    //         )
+    //     );
+        
+    //     digest =
+    //         keccak256(
+    //             abi.encodePacked(
+    //                 EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
+    //                 DOMAIN_SEPARATOR(),
+    //                 encoded
+    //             )
+    //         );
+    // }
+
+
+
+    // will be hooked to uninterpeted function
+    function abstract_keccak256(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress, bytes memory data) public pure returns (bytes32) {
+        return 0;
+    }
+
+
+    // This is a simplified version.
+    function _getDigest(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut) internal pure returns(bytes32 digest) {
+        return abstract_keccak256(
                 order.maker,
                 tokenIn,
                 tokenOut,
@@ -111,23 +146,14 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
                 order.endTime,
                 order.stopPrice,
                 order.oracleAddress,
-                order.oracleData
-            )
+                order.oracleData            
         );
-        
-        digest =
-            keccak256(
-                abi.encodePacked(
-                    EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
-                    DOMAIN_SEPARATOR(),
-                    encoded
-                )
-            );
     }
 
 
+ 
     function _preFillOrder(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut, ILimitOrderReceiver receiver) internal returns (bytes32 digest, uint256 amountToBeReturned) {
-        
+     
         {
             if(order.oracleAddress != IOracle(0)){
                 (bool success, uint256 rate) = order.oracleAddress.get(order.oracleData);
@@ -141,7 +167,8 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
 
         require(order.startTime <= block.timestamp && block.timestamp <= order.endTime, "order-expired");
 
-        require(ecrecover(digest, order.v, order.r, order.s) == order.maker, "Limit: not maker");
+        // Just removed this for easier verification..
+        // require(abstract_ecrecover(digest, order.v, order.r, order.s) == order.maker, "Limit: not maker");
         
         // Amount is either the right amount or short changed
         amountToBeReturned = order.amountOut.mul(order.amountToFill) / order.amountIn;

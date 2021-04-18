@@ -22,12 +22,13 @@ contract SimpleOrderReceiver is ILimitOrderReceiver {
     // these should be limited in the spec.
     uint256 public giveOut;
     uint256 public extraOut;
+    address public to;
 
     function onLimitOrder (IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountMinOut, bytes calldata data) override external {
-        bentoBox.withdraw(tokenIn, address(this), address(this), amountIn, 0);
-        (, uint256 amountOutMinExternal, address to) = abi.decode(data, (address[], uint256, address));
-        bentoBox.deposit(tokenOut, address(bentoBox), msg.sender, giveOut, 0);
-        bentoBox.deposit(tokenOut, address(bentoBox), to, extraOut, 0);
+        // we are ignoring the check that bentobox indeed got amountIn, and we are not withdrawing it.
+
+        bentoBox.transfer(tokenOut, address(bentoBox), msg.sender, giveOut);
+        bentoBox.transfer(tokenOut, address(bentoBox), to, extraOut);
 
         // Maybe also give opportunity for revert, and call back..
     }

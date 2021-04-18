@@ -7,9 +7,10 @@ import "../../contracts/StopLimitOrder.sol";
 contract StopLimitOrderHarness is StopLimitOrder {
 	constructor(uint256 _externalOrderFee, IBentoBoxV1 _bentoBox) StopLimitOrder(_externalOrderFee, _bentoBox) public { }
 	
-	address public ecrecover_return;
 	
-	function ecrecover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) public view returns (address) {
+	// currently i just commented this call in the code.. so this is not used.
+	address public ecrecover_return;
+	function _ecrecover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) public view returns (address) {
 		return ecrecover_return;
 	}
 
@@ -18,6 +19,7 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	IERC20 public tokenInHarness;
 	IERC20 public tokenOutHarness;
 	
+	address public makerHarness; 
 	uint256 public amountInHarness;
 	uint256 public amountOutHarness; 
     address public recipientHarness; 
@@ -32,6 +34,7 @@ contract StopLimitOrderHarness is StopLimitOrder {
     bytes32 public sHarness;
 
 	function requireOrderParams(OrderArgs memory order) internal view {
+		require(order.maker == makerHarness);
 		require(order.amountIn == amountInHarness);
 		require(order.amountOut == amountOutHarness);
 		require(order.recipient == recipientHarness);
@@ -40,12 +43,16 @@ contract StopLimitOrderHarness is StopLimitOrder {
 		require(order.stopPrice == stopPriceHarness);
 	    require(order.oracleAddress == oracleAddressHarness);
     	// require(order.oracleData == oracleDataHarness);
-    	require(order.amountToFill == amountToFillHarness);
+		require(order.amountToFill == amountToFillHarness);
 		require(order.v == vHarness); 
     	require(order.r == rHarness);
     	require(order.s == sHarness);
 	}
 
+	function getDigestHarness(OrderArgs memory order) public view returns (bytes32) {
+		requireOrderParams(order);
+		return _getDigest(order, tokenInHarness, tokenOutHarness);
+	}
 
 	function fillOrderHarness(OrderArgs memory order, bytes calldata data)
     public {

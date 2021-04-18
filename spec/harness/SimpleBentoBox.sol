@@ -6,7 +6,7 @@ import "@sushiswap/bentobox-sdk/contracts/BentoBoxV1.sol";
 contract SimpleBentoBox is BentoBoxV1 {
 	using BoringMath for uint256;
 
-	uint256 private constant RATIO = 2;
+	uint256 private constant RATIO = 1;
 
 	function toShare(IERC20 token, uint256 amount, bool roundUp) external override view returns (uint256 share) {
 		if (RATIO == 1)
