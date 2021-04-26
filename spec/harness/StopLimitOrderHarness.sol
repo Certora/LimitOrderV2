@@ -7,12 +7,21 @@ import "../../contracts/StopLimitOrder.sol";
 contract StopLimitOrderHarness is StopLimitOrder {
 	constructor(uint256 _externalOrderFee, IBentoBoxV1 _bentoBox) StopLimitOrder(_externalOrderFee, _bentoBox) public { }
 	
-	
+	function bentoBalanceOf(IERC20 token, address user) public view returns (uint256) {
+		return bentoBox.balanceOf(token, user);
+	}
+
+
 	// currently i just commented this call in the code.. so this is not used.
 	address public ecrecover_return;
 	function _ecrecover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) public view returns (address) {
 		return ecrecover_return;
 	}
+
+	function cancelled(address sender, bytes32 hash) public view returns (bool) {
+		return cancelledOrder[sender][hash];
+	}
+
 
 
 	ILimitOrderReceiver public receiverHarness;
@@ -49,6 +58,10 @@ contract StopLimitOrderHarness is StopLimitOrder {
     	require(order.s == sHarness);
 	}
 
+	function thisAddress() public view returns (address) {
+		return address(this);
+	}
+
 	function getDigestHarness(OrderArgs memory order) public view returns (bytes32) {
 		requireOrderParams(order);
 		return _getDigest(order, tokenInHarness, tokenOutHarness);
@@ -59,5 +72,18 @@ contract StopLimitOrderHarness is StopLimitOrder {
 		requireOrderParams(order);
 		fillOrder(order, tokenInHarness, tokenOutHarness, receiverHarness, data);
 	}
+
+	function fillOrderOpenHarness(OrderArgs memory order, bytes calldata data)
+    public {
+		requireOrderParams(order);
+		fillOrderOpen(order, tokenInHarness, tokenOutHarness, receiverHarness, data);
+	}
+
+	function batchFillOrderHarness(OrderArgs[] memory orders, bytes calldata data) public {
+		require(orders.length == 1);
+		requireOrderParams(orders[0]);
+		batchFillOrder(orders, tokenInHarness, tokenOutHarness, receiverHarness, data);
+	} 
+
 
 }
