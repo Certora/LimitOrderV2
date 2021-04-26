@@ -12,11 +12,39 @@ import "@sushiswap/bentobox-sdk/contracts/IBentoBoxV1.sol";
 import "./interfaces/ILimitOrderReceiver.sol";
 import "./interfaces/IOracle.sol";
 
+library SimpleRebase {
+    using BoringMath for uint256;
+    using BoringMath128 for uint128;
+
+    uint256 private constant RATIO = 1;
+
+    function toBase(Rebase memory total, uint256 elastic, bool roundUp) internal pure returns (uint256 base) {
+        if (RATIO == 1)
+			return elastic;
+        if (elastic == 0)
+			return 0;
+	    if (roundUp)
+			return (elastic.add(1)) / RATIO;
+		else 
+			return elastic / RATIO;
+            
+    }
+
+    function toElastic(Rebase memory total, uint256 base, bool roundUp) internal pure returns (uint256 elastic) {
+       	if (RATIO == 1)
+			return base;
+        return base.mul(RATIO);
+    }
+
+}
+
+
+
 // TODO: Run prettier?
-contract StopLimitOrder is BoringOwnable, BoringBatchable {
+contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
     using BoringMath for uint256;
     using BoringERC20 for IERC20;
-    using RebaseLibrary for Rebase;
+    using SimpleRebase for Rebase;
 
     struct OrderArgs {
         address maker; 
@@ -127,9 +155,10 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
 
 
 
+    uint256 option;
     // will be hooked to uninterpeted function
-    function abstract_keccak256(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress, bytes memory data) public pure returns (bytes32) {
-        return 0;
+    function abstract_keccak256(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress) public pure returns (bytes32) {
+        return "17";    
     }
 
 
@@ -145,8 +174,8 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
                 order.startTime,
                 order.endTime,
                 order.stopPrice,
-                order.oracleAddress,
-                order.oracleData            
+                order.oracleAddress
+            //        order.oracleData            
         );
     }
 
@@ -154,12 +183,14 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
  
     function _preFillOrder(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut, ILimitOrderReceiver receiver) internal returns (bytes32 digest, uint256 amountToBeReturned) {
      
-        {
-            if(order.oracleAddress != IOracle(0)){
-                (bool success, uint256 rate) = order.oracleAddress.get(order.oracleData);
-                require(success && rate > order.stopPrice, "Stop price not reached");
-            }
-        }
+        // I take this out because I call arbitrary methods and then this havocs
+        // is there another way??
+        // {
+        //     if(order.oracleAddress != IOracle(0)){
+        //         (bool success, uint256 rate) = order.oracleAddress.get(order.oracleData);
+        //         require(success && rate > order.stopPrice, "Stop price not reached");
+        //     }
+        // }
 
         digest = _getDigest(order, tokenIn, tokenOut);
         
@@ -184,7 +215,7 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
         emit LogFillOrder(order.maker, digest, receiver, order.amountToFill);
     }
 
-    function _fillOrderInternal(
+     function _fillOrderInternal(
         IERC20 tokenIn, 
         IERC20 tokenOut, 
         ILimitOrderReceiver receiver, 
@@ -239,7 +270,7 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
             IERC20 tokenOut,
             ILimitOrderReceiver receiver, 
             bytes calldata data) 
-    external {
+    public {
         require(isWhiteListed[receiver], "LimitOrder: not whitelisted");
 
         uint256[] memory amountToBeReturned = new uint256[](order.length);
@@ -309,10 +340,11 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
         emit LogFeesCollected(token, feeTo, balance);
     }
 
-    function swipe (IERC20 token) public {
-        uint256 balance = token.balanceOf(address(this));
-        token.safeTransfer(feeTo, balance);
-    }
+    // I think because safeTransfer is hard to work with.. 
+    // function swipe (IERC20 token) public {
+    //     uint256 balance = token.balanceOf(address(this));
+    //     token.safeTransfer(feeTo, balance);
+    // }
 
     function setFees(address _feeTo, uint256 _externalOrderFee) external onlyOwner {
         feeTo = _feeTo;

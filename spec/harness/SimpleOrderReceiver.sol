@@ -19,17 +19,35 @@ contract SimpleOrderReceiver is ILimitOrderReceiver {
         bentoBox = _bentoBox;
     }
 
-    // these should be limited in the spec.
-    uint256 public giveOut;
-    uint256 public extraOut;
-    address public to;
+    // these can be limited in the spec.
+    IERC20 token1;
+    address from1;
+    address to1;
+    uint256 amount1;
+
+    IERC20 token2;
+    address from2;
+    address to2;
+    uint256 amount2;
+
 
     function onLimitOrder (IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountMinOut, bytes calldata data) override external {
-        // we are ignoring the check that bentobox indeed got amountIn, and we are not withdrawing it.
-
-        bentoBox.transfer(tokenOut, address(bentoBox), msg.sender, giveOut);
-        bentoBox.transfer(tokenOut, address(bentoBox), to, extraOut);
-
+        
+        // Just two completely arbitrary transfers
+        // bentoBox.transfer(token1, from1, to1, amount1);
+        // bentoBox.transfer(token2, from2, to2, amount2);
+        // this timed out, and when it didn't it failed rules because
+        // it managed to transfer money from other contracts, by passing the "allowed"
+        // modifier, even if it was not the bentoBox, but using the mastercontract stuff.
+        
+        // maybe should do three. 
+        bentoBox.transfer(token1, address(this), to1, amount1);
+        bentoBox.transfer(token2, address(this), to2, amount2);
+    
         // Maybe also give opportunity for revert, and call back..
+
+        // another interesting possibility is let this be an abstract function
+        // that can only increase balance of other addresses,
+        // and can either increase or decrease the balance of address(this);
     }
 }
