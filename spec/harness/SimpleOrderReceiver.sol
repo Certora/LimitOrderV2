@@ -20,15 +20,13 @@ contract SimpleOrderReceiver is ILimitOrderReceiver {
     }
 
     // these can be limited in the spec.
-    IERC20 token1;
-    address from1;
-    address to1;
-    uint256 amount1;
+    IERC20 public token1;
+    address public to1;
+    uint256 public amount1;
 
-    IERC20 token2;
-    address from2;
-    address to2;
-    uint256 amount2;
+    IERC20 public token2;
+    address public to2;
+    uint256 public amount2;
 
 
     function onLimitOrder (IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountMinOut, bytes calldata data) override external {
@@ -42,7 +40,7 @@ contract SimpleOrderReceiver is ILimitOrderReceiver {
         
         // maybe should do three. 
         bentoBox.transfer(token1, address(this), to1, amount1);
-        bentoBox.transfer(token2, address(this), to2, amount2);
+        // bentoBox.transfer(token2, address(this), to2, amount2);
     
         // Maybe also give opportunity for revert, and call back..
 

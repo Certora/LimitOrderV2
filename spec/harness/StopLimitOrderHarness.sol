@@ -18,11 +18,6 @@ contract StopLimitOrderHarness is StopLimitOrder {
 		return ecrecover_return;
 	}
 
-	function cancelled(address sender, bytes32 hash) public view returns (bool) {
-		return cancelledOrder[sender][hash];
-	}
-
-
 
 	ILimitOrderReceiver public receiverHarness;
 	IERC20 public tokenInHarness;
@@ -42,7 +37,7 @@ contract StopLimitOrderHarness is StopLimitOrder {
     bytes32 public rHarness;
     bytes32 public sHarness;
 
-	function requireOrderParams(OrderArgs memory order) internal view {
+	function requireOrderParams(OrderArgs memory order) public view {
 		require(order.maker == makerHarness);
 		require(order.amountIn == amountInHarness);
 		require(order.amountOut == amountOutHarness);
@@ -67,23 +62,50 @@ contract StopLimitOrderHarness is StopLimitOrder {
 		return _getDigest(order, tokenInHarness, tokenOutHarness);
 	}
 
-	function fillOrderHarness(OrderArgs memory order, bytes calldata data)
-    public {
+	function fillOrderHarnessNoRevert(OrderArgs memory order, bytes calldata data) public returns (bool) {
+		if (order.maker != makerHarness ||
+			order.amountIn != amountInHarness ||
+			order.amountOut != amountOutHarness ||
+			order.recipient != recipientHarness ||
+			order.startTime != startTimeHarness ||
+	 		order.endTime != endTimeHarness ||
+			order.stopPrice != stopPriceHarness ||
+	    	order.oracleAddress != oracleAddressHarness ||
+    	// require(order.oracleData == oracleDataHarness);
+			order.amountToFill != amountToFillHarness ||
+			order.v != vHarness ||
+    		order.r != rHarness ||
+    		order.s != sHarness)
+			return false;
+
+		fillOrder(order, tokenInHarness, tokenOutHarness, receiverHarness, data);
+		return true;
+	}
+
+	function fillOrderHarness(OrderArgs memory order, bytes calldata data) public {
 		requireOrderParams(order);
 		fillOrder(order, tokenInHarness, tokenOutHarness, receiverHarness, data);
 	}
 
-	function fillOrderOpenHarness(OrderArgs memory order, bytes calldata data)
-    public {
+	function fillOrderOpenHarness(OrderArgs memory order, bytes calldata data) public {
 		requireOrderParams(order);
 		fillOrderOpen(order, tokenInHarness, tokenOutHarness, receiverHarness, data);
 	}
 
-	function batchFillOrderHarness(OrderArgs[] memory orders, bytes calldata data) public {
-		require(orders.length == 1);
-		requireOrderParams(orders[0]);
-		batchFillOrder(orders, tokenInHarness, tokenOutHarness, receiverHarness, data);
-	} 
+	function batchFillOrderHarness(OrderArgs memory order, bytes calldata data) public {
+		OrderArgs[] memory orders = new OrderArgs[](1); 
+		requireOrderParams(order);
+		orders[0] = order;
 
+		batchFillOrder(orders, tokenInHarness, tokenOutHarness, receiverHarness, data);
+	}
+
+	function batchFillOrderOpenHarness(OrderArgs memory order, bytes calldata data) public {
+		OrderArgs[] memory orders = new OrderArgs[](1); 
+		requireOrderParams(order);
+		orders[0] = order;
+
+		batchFillOrderOpen(orders, tokenInHarness, tokenOutHarness, receiverHarness, data);
+	}
 
 }

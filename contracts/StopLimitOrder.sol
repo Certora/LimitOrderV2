@@ -39,12 +39,18 @@ library SimpleRebase {
 }
 
 
+    // interface A {
+    //     function abstract_keccak256(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress) external pure returns (bytes32);
+    // }
+
 
 // TODO: Run prettier?
 contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
     using BoringMath for uint256;
     using BoringERC20 for IERC20;
     using SimpleRebase for Rebase;
+
+    // A public a;
 
     struct OrderArgs {
         address maker; 
@@ -155,15 +161,13 @@ contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
 
 
 
-    uint256 option;
-    // will be hooked to uninterpeted function
     function abstract_keccak256(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress) public pure returns (bytes32) {
-        return "17";    
+        return "17";
     }
-
-
+ 
+   
     // This is a simplified version.
-    function _getDigest(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut) internal pure returns(bytes32 digest) {
+    function _getDigest(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut) internal view returns(bytes32 digest) {
         return abstract_keccak256(
                 order.maker,
                 tokenIn,
@@ -298,7 +302,7 @@ contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
             IERC20 tokenOut,
             ILimitOrderReceiver receiver, 
             bytes calldata data) 
-    external {
+    public {
         uint256[] memory amountToBeReturned = new uint256[](order.length);
         uint256 totalAmountToBeFilled;
         uint256 totalAmountToBeReturned;
