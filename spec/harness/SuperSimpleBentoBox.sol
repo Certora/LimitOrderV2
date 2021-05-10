@@ -5,19 +5,42 @@ import "@sushiswap/bentobox-sdk/contracts/IBentoBoxV1.sol";
 
 
 contract SuperSimpleBentoBox is IBentoBoxV1 {
+	using BoringMath for uint256;
 
-    mapping(IERC20 => mapping(address => uint256)) public _balanceOf;
+  mapping(IERC20 => mapping(address => uint256)) public _balanceOf;
 
+	uint256 private constant RATIO = 1;
 
 	function balanceOf(IERC20 token, address user) external override view returns (uint256) {
-		return _balanceOf[token][user];
+	  return _balanceOf[token][user];
 	}
+
+  function toShare(IERC20 token, uint256 amount, bool roundUp) external override view returns (uint256 share) {
+		if (RATIO == 1)
+			return amount; 
+    if (amount == 0)
+			return 0;
+	  if (roundUp)
+			return (amount.add(1)) / RATIO;
+		else 
+			return amount / RATIO; 
+  }
+
+  function toAmount(IERC20 token, uint256 share, bool roundUp) external override view returns (uint256 amount) {
+		if (RATIO == 1)
+			return share; 
+    return share.mul(RATIO);
+  }
+
+  function totals(IERC20) override external view returns (Rebase memory totals_) {
+    return (Rebase)0;
+  }
+
+  function transfer(IERC20 token, address from, address to, uint256 share) override external {}
+    
 
 	function deposit(IERC20 token, address from, address to, uint256 amount, uint256 share) external override payable returns (uint256 amountOut, uint256 shareOut) {
-		assert(amount == 0);
-		token.transferFrom(from, address(this), amount);
 	}
-
 
     function batch(bytes[] calldata calls, bool revertOnFail) external override payable returns (bool[] memory successes, bytes[] memory results) {}
 
@@ -46,13 +69,7 @@ contract SuperSimpleBentoBox is IBentoBoxV1 {
 
     function strategyData(IERC20) override external view returns (uint64 strategyStartDate, uint64 targetPercentage, uint128 balance) {}
 
-    function toAmount(IERC20 token, uint256 share, bool roundUp) override external view returns (uint256 amount) {}
-
-    function toShare(IERC20 token, uint256 amount, bool roundUp) override external view returns (uint256 share) {}
-
-    function totals(IERC20) override external view returns (Rebase memory totals_) {}
-
-    function transfer(IERC20 token, address from, address to, uint256 share) override external {}
+    
     function transferMultiple(IERC20 token, address from, address[] calldata tos, uint256[] calldata shares) override external {}
 
     function transferOwnership(address newOwner, bool direct, bool renounce) override external {}

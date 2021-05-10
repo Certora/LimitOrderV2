@@ -39,9 +39,10 @@ library SimpleRebase {
 }
 
 
-    // interface A {
-    //     function abstract_keccak256(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress) external pure returns (bytes32);
-    // }
+    // for the ghost..
+    interface A {
+        function abstract_keccak256(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress) external pure returns (bytes32);
+    }
 
 
 // TODO: Run prettier?
@@ -50,7 +51,8 @@ contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
     using BoringERC20 for IERC20;
     using SimpleRebase for Rebase;
 
-    // A public a;
+    // this is all for the ghost..
+    A public a;
 
     struct OrderArgs {
         address maker; 
@@ -61,7 +63,7 @@ contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
         uint256 endTime;
         uint256 stopPrice;
         IOracle oracleAddress;
-        bytes oracleData;
+        // bytes oracleData;
         uint256 amountToFill;
         uint8 v; 
         bytes32 r;
@@ -161,14 +163,14 @@ contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
 
 
 
-    function abstract_keccak256(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress) public pure returns (bytes32) {
-        return "17";
-    }
+    // function abstract_keccak256(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress) public pure returns (bytes32) {
+    //     return "17";
+    // }
  
    
     // This is a simplified version.
     function _getDigest(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut) internal view returns(bytes32 digest) {
-        return abstract_keccak256(
+        return a.abstract_keccak256(
                 order.maker,
                 tokenIn,
                 tokenOut,
@@ -289,10 +291,13 @@ contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
         }
         _fillOrderInternal(tokenIn, tokenOut, receiver, data, totalAmountToBeFilled, totalAmountToBeReturned, 0);
 
-        Rebase memory bentoBoxTotals = bentoBox.totals(tokenOut);
+        // Removed this because we overide the Ratios anyway..
+        // But have to check that ratios can't change mid way
+        // Rebase memory bentoBoxTotals = bentoBox.totals(tokenOut);
 
         for(uint256 i = 0; i < order.length; i++) {
-            bentoBox.transfer(tokenOut, address(this), order[i].recipient, bentoBoxTotals.toBase(amountToBeReturned[i], false));
+            // Second part of the change is here. Should be checked to be correct..
+            bentoBox.transfer(tokenOut, address(this), order[i].recipient, /* bentoBoxTotals.toBase*/ bentoBox.toShare(tokenOut, amountToBeReturned[i], false) );
         }
     }
 
@@ -323,10 +328,10 @@ contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
 
         }
 
-        Rebase memory bentoBoxTotals = bentoBox.totals(tokenOut);
+        // Rebase memory bentoBoxTotals = bentoBox.totals(tokenOut);
 
         for(uint256 i = 0; i < order.length; i++) {
-            bentoBox.transfer(tokenOut, address(this), order[i].recipient, bentoBoxTotals.toBase(amountToBeReturned[i], false));
+            bentoBox.transfer(tokenOut, address(this), order[i].recipient, /* bentoBoxTotals.toBase */ bentoBox.toShare(tokenOut, amountToBeReturned[i], false));
         }
 
 

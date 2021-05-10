@@ -38,7 +38,8 @@ contract SimpleOrderReceiver is ILimitOrderReceiver {
         // it managed to transfer money from other contracts, by passing the "allowed"
         // modifier, even if it was not the bentoBox, but using the mastercontract stuff.
         
-        // maybe should do three. 
+        // maybe should do three.
+ 
         bentoBox.transfer(token1, address(this), to1, amount1);
         // bentoBox.transfer(token2, address(this), to2, amount2);
     
