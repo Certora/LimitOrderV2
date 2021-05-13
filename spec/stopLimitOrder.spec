@@ -23,9 +23,7 @@ methods {
     sHarness() returns (bytes32) envfree
 
 	setStopPrice(uint256)
-	
-	thisAddress() returns (address) envfree
-	
+		
 	bentoBalanceOf(address, address) returns (uint256) envfree
 	cancelledOrder(address sender, bytes32 hash) returns (bool) envfree
 	feeTo() returns (address) envfree
@@ -174,10 +172,14 @@ rule basicFillOrderSimple(method f) filtered {f ->
 	uint256 amountIn;
 	uint256 amountOut;
 	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountIn, amountOut);
+
 	require recipient != bentoBox;
-	require maker != bentoBox;
 	require recipient != receiver;
+	require recipient != currentContract;
+	require maker != bentoBox;
 	require maker != receiver;
+	require maker != currentContract;
+	
 
 //	uint256 _bentoBalanceIn = bentoBalanceOf(tokenIn, maker);
 	uint256 _bentoBalanceOut = bentoBalanceOf(tokenOut, recipient);
@@ -325,10 +327,6 @@ rule CheckFees(method f) filtered { f ->
 	assert feesCollected_ >= _feesCollected + expectedFee;
 }
 
-// Checks that the contract indeed holds feesCollected tokens.
-invariant feesInvariant(address token) 
-	bentoBalanceOf(token, thisAddress()) >= feesCollected(token)
-// totally times out..
 
 
 // Doesn't work, and i don't get counter example.
@@ -361,8 +359,11 @@ rule fillOrderLiveness()  {
 	require endTimeHarness() > e.block.number;
 	require e.msg.value == 0;
 
-	invoke fillOrderHarness(e, args); 
-	assert !lastReverted;
+    invoke_fallback(e, args);
+    require !lastReverted;
+
+    fillOrderHarness@withrevert(e, args);
+    assert !lastReverted;
 }
 
 
@@ -511,11 +512,6 @@ rule TwoDifferentOrdersAreCool2() {
 }
 
 
-
-
-
-
-
 // Should fail!
 rule digestSanity() {
 	uint256 stopPrice1;
@@ -533,6 +529,32 @@ rule digestSanity() {
 }
 
 
+// Checks that the contract indeed holds feesCollected tokens.
+invariant feesInvariant(address token) 
+	bentoBalanceOf(token, currentContract) >= feesCollected(token)
+// totally times out..
+
+
+
+// Works except for the unharnessed versions..
+rule CheckFeesInvariant(method f) /* filtered { f -> 
+	f.selector == fillOrderOpenHarness(bytes).selector 
+	// ||	
+	// f.selector == batchFillOrderOpenHarness((address,uint256,uint256,address,uint256,uint256,uint256,address,bytes,uint256,uint8,bytes32,bytes32),bytes).selector 
+	} */ {
+
+	require receiverHarness() == 1;
+	require makerHarness() == 2;
+
+	address token; 
+	require bentoBalanceOf(token, currentContract) >= feesCollected(token);
+
+	calldataarg args;
+	env e;
+	f(e, args);
+
+	assert bentoBalanceOf(token, currentContract) >= feesCollected(token);
+}
 
 
 
@@ -546,3 +568,8 @@ rule digestSanity() {
 // change ratio..
 
 // The batch are strange - even if one fails (because of stop or limit) they all fail.
+
+// should think of what happens with malicious reciever - 
+// basically we don't need to protect maker and reciever, but do need to protect everyone else, no?
+
+// To be able to make the transfer in _preOrder, the maker approves transfers to the reciever, but this is unlimited... is that ok?

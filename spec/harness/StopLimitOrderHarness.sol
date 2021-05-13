@@ -45,10 +45,6 @@ contract StopLimitOrderHarness is StopLimitOrder {
 		order = OrderArgs(makerHarness, amountInHarness, amountOutHarness, recipientHarness, startTimeHarness, endTimeHarness, stopPriceHarness, oracleAddressHarness, /*"0", */ amountToFillHarness, vHarness, rHarness, sHarness);
 	}
 
-	function thisAddress() public view returns (address) {
-		return address(this);
-	}
-
 	function getDigestHarness() public view returns (bytes32) {
 		return _getDigest(createOrder(), tokenInHarness, tokenOutHarness);
 	}
@@ -75,4 +71,9 @@ contract StopLimitOrderHarness is StopLimitOrder {
 		batchFillOrderOpen(orders, tokenInHarness, tokenOutHarness, receiverHarness, data);
 	}
 
+
+	fallback() external {
+	    bytes memory data;
+        data = abi.decode(msg.data[4:], (bytes));
+    }
 }
