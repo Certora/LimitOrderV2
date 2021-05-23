@@ -28,25 +28,47 @@ contract SimpleOrderReceiver is ILimitOrderReceiver {
     address public to2;
     uint256 public amount2;
 
+    address public somewhere;
+
 
     function onLimitOrder (IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountMinOut, bytes calldata data) override external {
         
-        // Just two completely arbitrary transfers
+
+        //----------------------------------------------------------------
+        // To model a malicious one
+
+        // Ideally just two completely arbitrary transfers
         // bentoBox.transfer(token1, from1, to1, amount1);
         // bentoBox.transfer(token2, from2, to2, amount2);
-        // this timed out, and when it didn't it failed rules because
-        // it managed to transfer money from other contracts, by passing the "allowed"
+        // It fails rules because it managed to transfer money from other contracts, by passing the "allowed"
         // modifier, even if it was not the bentoBox, but using the mastercontract stuff.
-        
-        // maybe should do three.
- 
-        bentoBox.transfer(token1, address(this), to1, amount1);
+
+        // So this is better, and normally I put just one transfer to make verification easier 
+        // bentoBox.transfer(token1, address(this), to1, amount1);
         // bentoBox.transfer(token2, address(this), to2, amount2);
+
+        // All this has to be checked with the toBase stuff.
+        // This does not take from the maker. The problem is there is actually no check on how much one
+        // takes from the maker.. So I don't really let it run free.
     
         // Maybe also give opportunity for revert, and call back..
 
-        // another interesting possibility is let this be an abstract function
-        // that can only increase balance of other addresses,
-        // and can either increase or decrease the balance of address(this);
+
+
+        // -----------------------------------------------------------------------
+        // To abstract sushiSwapLimitOrderReceiver.
+
+        // These are the lines from sushSwapOrderReceiver:
+        // bentoBox.withdraw(tokenIn, address(this), address(this), amountIn, 0);
+        // bentoBox.deposit(tokenOut, address(bentoBox), msg.sender, amountMinOut, 0);
+        // bentoBox.deposit(tokenOut, address(bentoBox), to, amountOut.sub(amountMinOut), 0);
+        // so we do:
+        bentoBox.transfer(tokenIn, address(this), somewhere, bentoBox.toShare(tokenOut, amountIn, true));
+        bentoBox.transfer(tokenOut, address(bentoBox), msg.sender, bentoBox.toShare(tokenOut, amountMinOut, false));
+        // The difference is because transfer works with shares, while deposit and withdraw work with tokens, 
+        // and they round (withdraw up and deposit down) if they get a token amount parameter.
+        // "somewhere" is just so we throw away the coins. In effect i think it only lets us check that
+        // there are at least this amount of coins in the balance of "this".
+        // Third line we ignore, because "to" is from the data which we know nothing about.
     }
 }

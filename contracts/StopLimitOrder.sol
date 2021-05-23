@@ -12,31 +12,6 @@ import "@sushiswap/bentobox-sdk/contracts/IBentoBoxV1.sol";
 import "./interfaces/ILimitOrderReceiver.sol";
 import "./interfaces/IOracle.sol";
 
-library SimpleRebase {
-    using BoringMath for uint256;
-    using BoringMath128 for uint128;
-
-    uint256 private constant RATIO = 1;
-
-    function toBase(Rebase memory total, uint256 elastic, bool roundUp) internal pure returns (uint256 base) {
-        if (RATIO == 1)
-			return elastic;
-        if (elastic == 0)
-			return 0;
-	    if (roundUp)
-			return (elastic.add(1)) / RATIO;
-		else 
-			return elastic / RATIO;
-            
-    }
-
-    function toElastic(Rebase memory total, uint256 base, bool roundUp) internal pure returns (uint256 elastic) {
-       	if (RATIO == 1)
-			return base;
-        return base.mul(RATIO);
-    }
-
-}
 
 
     // for the ghost..
@@ -49,7 +24,6 @@ library SimpleRebase {
 contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
     using BoringMath for uint256;
     using BoringERC20 for IERC20;
-    using SimpleRebase for Rebase;
 
     // this is all for the ghost..
     A public a;
@@ -230,6 +204,7 @@ contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
         uint256 amountToBeReturned, 
         uint256 fee)
     internal returns(uint256 _feesCollected){
+        // the transfer above moved maybe a little less than amountToFill, yet here you send exactly amountToFill. and then withdraw will round up and will fail.
         receiver.onLimitOrder(tokenIn, tokenOut, amountToFill, amountToBeReturned.add(fee), data);
 
         _feesCollected = feesCollected[tokenOut];
@@ -249,6 +224,7 @@ contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
         
         _fillOrderInternal(tokenIn, tokenOut, receiver, data, order.amountToFill, amountToBeReturned, 0);
 
+        // this returns to the user maybe less than he was wanting to get - should prob be rounded up.
         bentoBox.transfer(tokenOut, address(this), order.recipient, bentoBox.toShare(tokenOut, amountToBeReturned, false));
 
     }

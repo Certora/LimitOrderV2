@@ -22,7 +22,7 @@ methods {
     rHarness() returns (bytes32) envfree
     sHarness() returns (bytes32) envfree
 
-	setStopPrice(uint256)
+	setStopPrice(uint256) envfree
 		
 	bentoBalanceOf(address, address) returns (uint256) envfree
 	cancelledOrder(address sender, bytes32 hash) returns (bool) envfree
@@ -30,6 +30,7 @@ methods {
 	feesCollected(address) returns (uint256) envfree
 	externalOrderFee() returns (uint256) envfree
 	FEE_DIVISOR() returns (uint256) envfree
+	orderStatus(bytes32) returns (uint256) envfree;
 
 
 	getDigestHarness() envfree
@@ -37,6 +38,7 @@ methods {
 	fillOrderOpenHarness(bytes)
 	batchFillOrderHarness(bytes)
 	batchFillOrderOpenHarness(bytes)
+	swipeFees(address) envfree
 
 	onLimitOrder(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountMinOut, bytes data) => DISPATCHER(true)
 	
@@ -122,135 +124,37 @@ function prepare(address recipient, address maker, address tokenIn, address toke
 }
 
 
-// Checks fillOrder methods result in tokenOut balance increasing at least as much as it should, and that tokenIn balance does not decrease too much.
-rule basicFillOrder(method f) filtered {f -> 
-	f.selector == fillOrderHarness(bytes).selector /* || 
-	f.selector == fillOrderOpenHarness(bytes).selector || 
-	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
-	} {
+
+/****************************************************************************************************/
+
+definition outOnly() returns uint = 1;
+definition inOnly() returns uint = 2;
+definition sameSame() returns uint = 3;
+
+function fillOrderGeneralFunction(method f, uint type) {
 	address recipient = 1;
 	address maker;
 	address tokenIn;
 	address tokenOut;
-	require (maker == 2) || ((maker == recipient) && (tokenIn != tokenOut));
 	uint256 amountIn;
-	uint256 amountOut;
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountIn, amountOut);
-
-	uint256 _bentoBalanceIn = bentoBalanceOf(tokenIn, maker);	
-	uint256 _bentoBalanceOut = bentoBalanceOf(tokenOut, recipient);
-	uint256 _bentoBalanceOutCoins = bentoBox.toAmount(tokenOut, _bentoBalanceOut, false);
-
-	calldataarg args;
-	env e;
-	f(e, args);
-
-	uint256 bentoBalanceIn_ = bentoBalanceOf(tokenIn, maker);
-	uint256 bentoBalanceOut_ = bentoBalanceOf(tokenOut, recipient);
-	uint256 bentoBalanceOutCoins_ = bentoBox.toAmount(tokenOut, bentoBalanceOut_, false);
-
-	// at least amountOut coins were added to recipient. 
-	assert bentoBalanceOutCoins_ >= _bentoBalanceOutCoins + amountOut;
-	// no more than amountIn tokens were taken from maker.
-	assert bentoBalanceIn_ + amountIn >= _bentoBalanceIn;
-}
-
-
-// Just for experiments..
-rule basicFillOrderSimple(method f) filtered {f -> 
-	f.selector == fillOrderHarness(bytes).selector /* || 
-	f.selector == fillOrderOpenHarness(bytes).selector || 
-	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
-	} {
-	address recipient;
-	address maker;
-	address tokenIn;
-	address tokenOut;
-	require (maker != recipient) || ((maker == recipient) && (tokenIn != tokenOut));
-	uint256 amountIn;
-	uint256 amountOut;
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountIn, amountOut);
-
-	require recipient != bentoBox;
-	require recipient != receiver;
-	require recipient != currentContract;
-	require maker != bentoBox;
-	require maker != receiver;
-	require maker != currentContract;
-	
-
-//	uint256 _bentoBalanceIn = bentoBalanceOf(tokenIn, maker);
-	uint256 _bentoBalanceOut = bentoBalanceOf(tokenOut, recipient);
-	uint256 _bentoBalanceOutCoins = bentoBox.toAmount(tokenOut, _bentoBalanceOut, false);
-
-	calldataarg args;
-	env e;
-	f(e, args);
-
-//	uint256 bentoBalanceIn_ = bentoBalanceOf(tokenIn, maker);
-	uint256 bentoBalanceOut_ = bentoBalanceOf(tokenOut, recipient);
-	uint256 bentoBalanceOutCoins_ = bentoBox.toAmount(tokenOut, bentoBalanceOut_, false);
-
-	// at least amountOut coins were added to recipient. 
-	assert bentoBalanceOutCoins_ >= _bentoBalanceOutCoins + amountOut;
-	// no more than amountIn tokens were taken from maker.
-	//	assert bentoBalanceIn_ + amountIn >= _bentoBalanceIn;
-}
-
-
-rule basicFillOrderSameSame(method f) filtered {f -> 
-	f.selector == fillOrderHarness(bytes).selector || 
-	f.selector == fillOrderOpenHarness(bytes).selector || 
-	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector 
-	}{
-	address recipientAndMaker = 1;
-	address token = 2;
-
-	uint256 amountIn;
-	uint256 amountOut;
-	prepare(recipientAndMaker, recipientAndMaker, token, token, amountIn, amountIn, amountOut);
-
-	uint256 _bentoBalance = bentoBalanceOf(token, recipientAndMaker);
-	uint256 _bentoBalanceCoins = bentoBox.toAmount(token, _bentoBalance, false);
-
-	calldataarg args;
-	env e;
-	f(e, args);
-
-	uint256 bentoBalance_ = bentoBalanceOf(token, recipientAndMaker);
-	uint256 bentoBalanceCoins_ = bentoBox.toAmount(token, bentoBalance_, false);
-
-	// after >= before - in +  out
-	assert bentoBalanceCoins_ + amountIn >= _bentoBalanceCoins + amountOut;
-}
-
-// same as basicFillOrder, when AmountToFill is 1/4 of AmountIn 
-// but flag
-function fillOrderWithAmountInFunction(bool outFlag, method f) 
-{
-	address recipient = 1;
-	address maker;
-	address tokenIn;
-	address tokenOut;
-	require (maker == 2) || ((maker == recipient) && (tokenIn != tokenOut));
 	uint256 amountToFill;
-	uint256 amountIn = amountToFill * 4;
-	uint256 expectedAmountOut;
-	uint256 amountOut = expectedAmountOut * 4;
+	uint256 amountOut;
 	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
 
-	require amountToFill < 10000000;
-	require expectedAmountOut < 10000000;
+	if (type == sameSame())
+	 	require (maker == recipient) && (tokenIn == tokenOut);
+	else
+	 	require (maker == 2) || ((maker == recipient) && (tokenIn != tokenOut));
 
-	uint256 _bentoBalanceOut; 
+	require amountIn != 0;
+	uint256 expectedAmountOut = amountOut * amountToFill / amountIn;
+
+	uint256 _bentoBalanceOut;
 	uint256 _bentoBalanceIn;	
 	uint256 bentoBalanceOut_;
-	uint256 bentoBalanceIn_;	
-
-	if (outFlag)
+	uint256 bentoBalanceIn_;
+	
+	if (type == sameSame() || type == outOnly())
 		require _bentoBalanceOut == bentoBalanceOf(tokenOut, recipient);
 	else 
 		require _bentoBalanceIn == bentoBalanceOf(tokenIn, maker);	
@@ -259,61 +163,120 @@ function fillOrderWithAmountInFunction(bool outFlag, method f)
 	env e;
 	f(e, args);
 
-	if (outFlag)
+	if (type == sameSame() || type == outOnly())
 		require bentoBalanceOut_ == bentoBalanceOf(tokenOut, recipient);
 	else 
 		require bentoBalanceIn_ == bentoBalanceOf(tokenIn, maker);	
-	
-	// at least expectedAmountOut coins were added to recipient. 
-	if (outFlag) {
+
+
+	if (type == sameSame() || type == outOnly()) {
 		uint256 _bentoBalanceOutCoins = bentoBox.toAmount(tokenOut, _bentoBalanceOut, false);
 		uint256 bentoBalanceOutCoins_ = bentoBox.toAmount(tokenOut, bentoBalanceOut_, false);
-		assert bentoBalanceOutCoins_ >= _bentoBalanceOutCoins + expectedAmountOut;
-	}
-	else 
-		assert bentoBalanceIn_ + amountToFill >= _bentoBalanceIn;
+		if (type == sameSame())
+			// Actually this is probably incorrect if we change ratio from 1..
+			assert bentoBalanceOutCoins_ >= _bentoBalanceOutCoins + expectedAmountOut - amountToFill;
+		else
+			assert bentoBalanceOutCoins_ + 1 >= _bentoBalanceOutCoins + expectedAmountOut;
+	} else 
+		assert bentoBalanceIn_ >= _bentoBalanceIn - amountToFill;
 }
 
-rule FillOrderWithAmountIn1(method f) filtered {f -> 
-	f.selector == fillOrderHarness(bytes).selector // || 
-	// f.selector == fillOrderOpenHarness().selector || 
-	// f.selector ==  batchFillOrderHarness().selector || 
-	// f.selector == batchFillOrderOpenHarness().selector 
+/****************************************************************************************************/
+
+
+rule fillOrderOut(method f) filtered { f -> 
+	f.selector == fillOrderHarness(bytes).selector /* || 
+	f.selector == fillOrderOpenHarness(bytes).selector || 
+	f.selector ==  batchFillOrderHarness(bytes).selector || 
+	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
 	} {
-	fillOrderWithAmountInFunction(true, f);
-	assert true;
+	require amountToFillHarness() == amountInHarness();
+	fillOrderGeneralFunction(f, outOnly());
+	assert(true);
 }
 
-rule FillOrderWithAmountIn2(method f) filtered {f -> 
-	f.selector == fillOrderHarness(bytes).selector // || 
-	// f.selector == fillOrderOpenHarness().selector || 
-	// f.selector ==  batchFillOrderHarness().selector || 
-	// f.selector == batchFillOrderOpenHarness().selector 
+rule fillOrderIn(method f) filtered { f -> 
+	f.selector == fillOrderHarness(bytes).selector /* || 
+	f.selector == fillOrderOpenHarness(bytes).selector || 
+	f.selector ==  batchFillOrderHarness(bytes).selector || 
+	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
 	} {
-	fillOrderWithAmountInFunction(false, f);
-	assert true;
+	require amountToFillHarness() == amountInHarness();
+	fillOrderGeneralFunction(f, inOnly());
+	assert(true);
 }
+
+rule fillOrderSameSame(method f) filtered { f -> 
+	f.selector == fillOrderHarness(bytes).selector /* || 
+	f.selector == fillOrderOpenHarness(bytes).selector || 
+	f.selector ==  batchFillOrderHarness(bytes).selector || 
+	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
+	} {
+	require amountToFillHarness() == amountInHarness();
+	fillOrderGeneralFunction(f, sameSame());
+	assert(true);
+}
+
+
+/****************************************************************************************************/
+
+
+rule fillOrderAmountToFillOut(method f) filtered { f -> 
+	f.selector == fillOrderHarness(bytes).selector /* || 
+	f.selector == fillOrderOpenHarness(bytes).selector || 
+	f.selector ==  batchFillOrderHarness(bytes).selector || 
+	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
+	} {
+	fillOrderGeneralFunction(f, outOnly());
+	assert(true);
+}
+
+
+// Passes
+rule fillOrderAmountToFillIn(method f) filtered { f -> 
+	f.selector == fillOrderHarness(bytes).selector /* || 
+	f.selector == fillOrderOpenHarness(bytes).selector || 
+	f.selector ==  batchFillOrderHarness(bytes).selector || 
+	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
+	} {
+	fillOrderGeneralFunction(f, inOnly());
+	assert(true);
+}
+
+
+rule fillOrderAmountToFillSameSame(method f) filtered { f -> 
+	f.selector == fillOrderHarness(bytes).selector /* || 
+	f.selector == fillOrderOpenHarness(bytes).selector || 
+	f.selector ==  batchFillOrderHarness(bytes).selector || 
+	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
+	} {
+	fillOrderGeneralFunction(f, sameSame());
+	assert(true);
+}
+
+
+/****************************************************************************************************/
 
 
 // Checks fees are collected correctly.
+// this one passes but is pretty heavy.
 rule CheckFees(method f) filtered { f -> 
 	f.selector == fillOrderOpenHarness(bytes).selector 
-	// ||	
-	// f.selector == batchFillOrderOpenHarness((address,uint256,uint256,address,uint256,uint256,uint256,address,bytes,uint256,uint8,bytes32,bytes32),bytes).selector 
+	// || f.selector == batchFillOrderOpenHarness(bytes).selector 
 	} {
 	address recipient = 1;
 	address maker;
 	address tokenIn;
 	address tokenOut;
-	require (maker == 2) || (maker == recipient);
-	uint256 amountToFill;
 	uint256 amountIn;
-	
+	uint256 amountToFill = amountIn;	
 	uint256 expectedFee;
-	require expectedFee < 10000000;
 	uint256 amountOut = 4 * expectedFee;
 
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountIn, amountOut);
+	require (maker == 2) || (maker == 1);
+	require expectedFee < 10000000;
+	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+
 	require externalOrderFee() == FEE_DIVISOR() / 4;
 
 	uint256 _feesCollected = feesCollected(tokenOut);
@@ -327,6 +290,35 @@ rule CheckFees(method f) filtered { f ->
 	assert feesCollected_ >= _feesCollected + expectedFee;
 }
 
+
+// Checks that the contract indeed holds feesCollected tokens.
+// invariant feesInvariant(address token) 
+// 	bentoBalanceOf(token, currentContract) >= feesCollected(token)
+// totally times out..
+
+
+// Should actually run this on all methods except the unharnessed versions of the fillOrder methods.
+rule CheckFeesInvariant(method f)  filtered { f -> 
+	f.selector == fillOrderOpenHarness(bytes).selector ||
+	f.selector == swipeFees(address).selector   
+	} {
+	// otherwise the order takes away the fees to the receiver.
+	require makerHarness() != currentContract;
+
+	address token; 
+	require bentoBalanceOf(token, currentContract) >= feesCollected(token);
+
+	calldataarg args;
+	env e;
+	f(e, args);
+
+	assert bentoBalanceOf(token, currentContract) >= feesCollected(token);
+}
+
+
+
+
+/****************************************************************************************************/
 
 
 // Doesn't work, and i don't get counter example.
@@ -367,161 +359,55 @@ rule fillOrderLiveness()  {
 }
 
 
-// Same order called twice works well in the case that the two amountToFill sum to at most amountIn.
-rule TwoSameOrders() {
+
+/****************************************************************************************************/
+
+
+// See that if an order was partially filled, it cannot pass its amountIn.
+rule checkOrderStatus() {
 	address recipient = 1;
 	address maker;
 	address tokenIn;
 	address tokenOut;
-	require (maker == 2) || ((maker == recipient) && (tokenIn != tokenOut));
-	uint256 amountOut = 100;
-	uint256 amountToFill = 1000;
-	uint256 amountIn = 4000;
-	
+	uint256 amountOut;
+	uint256 amountToFill;
+	uint256 amountIn;
 	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
-
-//	uint256 _bentoBalanceIn = bentoBalanceOf(tokenIn, maker);	
-	uint256 _bentoBalanceOut = bentoBalanceOf(tokenOut, recipient);
-	uint256 _bentoBalanceOutCoins = bentoBox.toAmount(tokenOut, _bentoBalanceOut, false);
-
-	calldataarg args;
-	env e;
-	fillOrderHarness(e, args);
-
-	calldataarg args2;
-	env e2;
-	fillOrderHarness(e2, args2);
-
-//	uint256 bentoBalanceIn_ = bentoBalanceOf(tokenIn, maker);
-	uint256 bentoBalanceOut_ = bentoBalanceOf(tokenOut, recipient);
-	uint256 bentoBalanceOutCoins_ = bentoBox.toAmount(tokenOut, bentoBalanceOut_, false);
-
-	// at least amountOut coins were added to recipient. 
-	assert bentoBalanceOutCoins_ >= _bentoBalanceOutCoins + 50;
-	// no more than amountIn tokens were taken from maker.
-//	assert bentoBalanceIn_ + 2000 >= _bentoBalanceIn;
-}
-
-
-// Same order called twice fail in the case that the two amountToFill sum more than amountIn.
-rule TwoSameOrdersFail() {
-	address recipient = 1;
-	address maker;
-	address tokenIn;
-	address tokenOut;
-	require (maker == 2) || ((maker == recipient) && (tokenIn != tokenOut));
-	uint256 amountOut = 100;
-	uint256 amountToFill = 3000;
-	uint256 amountIn = 4000;
+	require maker == 1 || maker == 2;
 	
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+	bytes32 digest = getDigestHarness();
+	uint256 already = orderStatus(digest);
 
-	calldataarg args;
+	require amountToFill + already > amountIn;
+
+	// this should fail
 	env e;
-	fillOrderHarness(e, args);
-
-	calldataarg args2;
-	env e2;
-	invoke fillOrderHarness(e2, args2);
+	calldataarg args;
+    fillOrderHarness@withrevert(e, args);
 
 	assert lastReverted;
 }
 
-// If two orders differ by something (so that digest is different), they can both succeed. (in therms of tokenOut)
-rule TwoDifferentOrdersAreCool1() {
-	address recipient = 1;
-	address maker;
-	address tokenIn;
-	address tokenOut;
-	require (maker == 2) || ((maker == recipient) && (tokenIn != tokenOut));
-	uint256 amountOut = 100;
-	uint256 amountToFill = 3000;
-	uint256 amountIn = 4000;
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
-	
-	// Just to be able to get a different digest
-	uint256 stopPrice1;
-	uint256 stopPrice2;
-	require stopPrice1 != stopPrice2;
-	require stopPriceHarness() == stopPrice1;
-	bytes32 digest1= getDigestHarness();
-
-	uint256 _bentoBalanceOut = bentoBalanceOf(tokenOut, recipient);
-	uint256 _bentoBalanceOutCoins = bentoBox.toAmount(tokenOut, _bentoBalanceOut, false);
-//	uint256 _bentoBalanceIn = bentoBalanceOf(tokenIn, maker);	
-
-	calldataarg args;
-	env e;
-	fillOrderHarness(e, args);
-
-	env e2;
-	setStopPrice(e2, stopPrice2);
-	bytes32 digest2 = getDigestHarness();
-	require digest1 != digest2;
-
-	calldataarg args3;
-	env e3;
-	fillOrderHarness(e3, args3);
-
-	uint256 bentoBalanceOut_ = bentoBalanceOf(tokenOut, recipient);
-	uint256 bentoBalanceOutCoins_ = bentoBox.toAmount(tokenOut, bentoBalanceOut_, false);
-//	uint256 bentoBalanceIn_ = bentoBalanceOf(tokenIn, maker);	
-
-	assert bentoBalanceOutCoins_ >= _bentoBalanceOutCoins + 150;
-//	assert bentoBalanceIn_ + 6000 >= _bentoBalanceIn;
-}
 
 
-// In terms of tokenIn
-rule TwoDifferentOrdersAreCool2() {
-	address recipient = 1;
-	address maker;
-	address tokenIn;
-	address tokenOut;
-	require (maker == 2) || ((maker == recipient) && (tokenIn != tokenOut));
-	uint256 amountOut = 100;
-	uint256 amountToFill = 3000;
-	uint256 amountIn = 4000;
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
-	
-	// Just to be able to get a different digest
-	uint256 stopPrice1;
-	uint256 stopPrice2;
-	require stopPrice1 != stopPrice2;
-	require stopPriceHarness() == stopPrice1;
-	bytes32 digest1 = getDigestHarness();
-
-	uint256 _bentoBalanceIn = bentoBalanceOf(tokenIn, maker);	
-
-	calldataarg args;
-	env e;
-	fillOrderHarness(e, args);
-
-	env e2;
-	setStopPrice(e2, stopPrice2);
-	bytes32 digest2 = getDigestHarness();
-	require digest1 != digest2;
-
-	calldataarg args3;
-	env e3;
-	fillOrderHarness(e3, args3);
-
-	uint256 bentoBalanceIn_ = bentoBalanceOf(tokenIn, maker);	
-	
-	assert bentoBalanceIn_ + 6000 >= _bentoBalanceIn;
-}
 
 
-// Should fail!
+
+// Should fail! indeed does.
 rule digestSanity() {
-	uint256 stopPrice1;
-	uint256 stopPrice2;
-	require stopPrice1 != stopPrice2;
-	require stopPriceHarness() == stopPrice1;
 	bytes32 digest1 = getDigestHarness();
 
-	env e;
-	setStopPrice(e, stopPrice2);
+	uint256 newStopPrice;
+	setStopPrice(newStopPrice);
+
+	bytes32 digest2 = getDigestHarness();
+	
+	assert digest1 == digest2;
+}
+
+// should pass. and it does.
+rule digestSanity2() {
+	bytes32 digest1 = getDigestHarness();
 
 	bytes32 digest2 = getDigestHarness();
 	
@@ -529,47 +415,57 @@ rule digestSanity() {
 }
 
 
-// Checks that the contract indeed holds feesCollected tokens.
-invariant feesInvariant(address token) 
-	bentoBalanceOf(token, currentContract) >= feesCollected(token)
-// totally times out..
 
 
+/****************************************************************************************************/
 
-// Works except for the unharnessed versions..
-rule CheckFeesInvariant(method f) /* filtered { f -> 
-	f.selector == fillOrderOpenHarness(bytes).selector 
-	// ||	
-	// f.selector == batchFillOrderOpenHarness((address,uint256,uint256,address,uint256,uint256,uint256,address,bytes,uint256,uint8,bytes32,bytes32),bytes).selector 
-	} */ {
+// Check Bug
+// A livness rule should have been able to find this.
+rule CheckBug() {
+	address recipient = 1;
+	address maker = 2;
+	address tokenIn = 3;
+	address tokenOut = 4;
+	uint256 amountIn = 100;
+	uint256 amountToFill = amountIn;	
+	uint256 amountOut = 101;
+	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+	require feesCollected(tokenOut) == 0;
+	require bentoBalanceOf(tokenOut, currentContract) == 0;
 
-	require receiverHarness() == 1;
-	require makerHarness() == 2;
-
-	address token; 
-	require bentoBalanceOf(token, currentContract) >= feesCollected(token);
-
+	// CHANGED SIMPLELIMITORDERRECEIVER
 	calldataarg args;
 	env e;
-	f(e, args);
+	fillOrderHarness(e, args);
 
-	assert bentoBalanceOf(token, currentContract) >= feesCollected(token);
+	assert(false);
+	
 }
 
+// I would also do a require in the code after onLimitOrder to see it doesn't take too much.
+// especially for melicious ones.
 
 
 
-// two orders stuff..
+// two orders stuff in batch..
 
 // need a liveness version for everything: if conditions are good enough, nothing will fail..
 
 // out of time order fails
 
-// change ratio..
+// change ratio.
 
 // The batch are strange - even if one fails (because of stop or limit) they all fail.
 
-// should think of what happens with malicious reciever - 
+// should think of what happens with malicious receiver - 
 // basically we don't need to protect maker and reciever, but do need to protect everyone else, no?
 
 // To be able to make the transfer in _preOrder, the maker approves transfers to the reciever, but this is unlimited... is that ok?
+// This means that a malicious receiver can take more from the maker. But I am guessing that it is his problem.
+
+// when ratio changes to 2 or more, should check the rounding, and especially that one does not pay more than he wanted, and does not get less than he wanted to get.
+
+// Have to think about this keeping of 1 balance of currentContract. Can't it be taken away?
+
+// have to check the rounding thing.. because only in one place the contract rounds up - in the require. So there may be a liveness problem.
+// Quite sure this is a bug. - but that has to do with the real sushiswapLimitOrder which returns the exact number.
