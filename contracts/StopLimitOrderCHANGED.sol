@@ -2,7 +2,7 @@
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringOwnable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
@@ -12,11 +12,21 @@ import "@sushiswap/bentobox-sdk/contracts/IBentoBoxV1.sol";
 import "./interfaces/ILimitOrderReceiver.sol";
 import "./interfaces/IOracle.sol";
 
+
+
+    // for the ghost..
+    interface A {
+        function abstract_keccak256(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress) external pure returns (bytes32);
+    }
+
+
 // TODO: Run prettier?
-contract StopLimitOrder is BoringOwnable, BoringBatchable {
+contract StopLimitOrder is BoringOwnable /* , BoringBatchable */ {
     using BoringMath for uint256;
     using BoringERC20 for IERC20;
-    using RebaseLibrary for Rebase;
+
+    // this is all for the ghost..
+    A public a;
 
     struct OrderArgs {
         address maker; 
@@ -27,7 +37,7 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
         uint256 endTime;
         uint256 stopPrice;
         IOracle oracleAddress;
-        bytes oracleData;
+        // bytes oracleData;
         uint256 amountToFill;
         uint8 v; 
         bytes32 r;
@@ -40,7 +50,7 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
     bytes32 private constant ORDER_TYPEHASH = keccak256("LimitOrder(address maker,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut,address recipient,uint256 startTime,uint256 endTime,uint256 stopPrice,address oracleAddress,bytes32 oracleData)");
     bytes32 private immutable _DOMAIN_SEPARATOR;
     uint256 public immutable deploymentChainId;
-    IBentoBoxV1 private immutable bentoBox;
+    IBentoBoxV1 public immutable bentoBox;
 
     uint256 public constant FEE_DIVISOR=1e6;
     
@@ -97,10 +107,44 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
         return chainId == deploymentChainId ? _DOMAIN_SEPARATOR : _calculateDomainSeparator(chainId);
     }
 
+    // function _getDigest(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut) internal view returns(bytes32 digest) {
+    //     bytes32 encoded = keccak256(
+    //         abi.encode(
+    //             ORDER_TYPEHASH,
+    //             order.maker,
+    //             tokenIn,
+    //             tokenOut,
+    //             order.amountIn,
+    //             order.amountOut,
+    //             order.recipient,
+    //             order.startTime,
+    //             order.endTime,
+    //             order.stopPrice,
+    //             order.oracleAddress,
+    //             order.oracleData
+    //         )
+    //     );
+        
+    //     digest =
+    //         keccak256(
+    //             abi.encodePacked(
+    //                 EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
+    //                 DOMAIN_SEPARATOR(),
+    //                 encoded
+    //             )
+    //         );
+    // }
+
+
+
+    // function abstract_keccak256(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress) public pure returns (bytes32) {
+    //     return "17";
+    // }
+ 
+   
+    // This is a simplified version.
     function _getDigest(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut) internal view returns(bytes32 digest) {
-        bytes32 encoded = keccak256(
-            abi.encode(
-                ORDER_TYPEHASH,
+        return a.abstract_keccak256(
                 order.maker,
                 tokenIn,
                 tokenOut,
@@ -110,30 +154,23 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
                 order.startTime,
                 order.endTime,
                 order.stopPrice,
-                order.oracleAddress,
-                order.oracleData
-            )
+                order.oracleAddress
+            //        order.oracleData            
         );
-        
-        digest =
-            keccak256(
-                abi.encodePacked(
-                    EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
-                    DOMAIN_SEPARATOR(),
-                    encoded
-                )
-            );
     }
 
 
+ 
     function _preFillOrder(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut, ILimitOrderReceiver receiver) internal returns (bytes32 digest, uint256 amountToBeReturned) {
-        
-        {
-            if(order.oracleAddress != IOracle(0)){
-                (bool success, uint256 rate) = order.oracleAddress.get(order.oracleData);
-                require(success && rate > order.stopPrice, "Stop price not reached");
-            }
-        }
+     
+        // I take this out because I call arbitrary methods and then this havocs
+        // is there another way??
+        // {
+        //     if(order.oracleAddress != IOracle(0)){
+        //         (bool success, uint256 rate) = order.oracleAddress.get(order.oracleData);
+        //         require(success && rate > order.stopPrice, "Stop price not reached");
+        //     }
+        // }
 
         digest = _getDigest(order, tokenIn, tokenOut);
         
@@ -141,7 +178,8 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
 
         require(order.startTime <= block.timestamp && block.timestamp <= order.endTime, "order-expired");
 
-        require(ecrecover(digest, order.v, order.r, order.s) == order.maker, "Limit: not maker");
+        // Just removed this for easier verification..
+        // require(abstract_ecrecover(digest, order.v, order.r, order.s) == order.maker, "Limit: not maker");
         
         // Amount is either the right amount or short changed
         amountToBeReturned = order.amountOut.mul(order.amountToFill) / order.amountIn;
@@ -157,7 +195,7 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
         emit LogFillOrder(order.maker, digest, receiver, order.amountToFill);
     }
 
-    function _fillOrderInternal(
+     function _fillOrderInternal(
         IERC20 tokenIn, 
         IERC20 tokenOut, 
         ILimitOrderReceiver receiver, 
@@ -166,6 +204,7 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
         uint256 amountToBeReturned, 
         uint256 fee)
     internal returns(uint256 _feesCollected){
+        // the transfer above moved maybe a little less than amountToFill, yet here you send exactly amountToFill. and then withdraw will round up and will fail.
         receiver.onLimitOrder(tokenIn, tokenOut, amountToFill, amountToBeReturned.add(fee), data);
 
         _feesCollected = feesCollected[tokenOut];
@@ -185,6 +224,7 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
         
         _fillOrderInternal(tokenIn, tokenOut, receiver, data, order.amountToFill, amountToBeReturned, 0);
 
+        // this returns to the user maybe less than he was wanting to get - should prob be rounded up.
         bentoBox.transfer(tokenOut, address(this), order.recipient, bentoBox.toShare(tokenOut, amountToBeReturned, false));
 
     }
@@ -212,7 +252,7 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
             IERC20 tokenOut,
             ILimitOrderReceiver receiver, 
             bytes calldata data) 
-    external {
+    public {
         require(isWhiteListed[receiver], "LimitOrder: not whitelisted");
 
         uint256[] memory amountToBeReturned = new uint256[](order.length);
@@ -227,10 +267,13 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
         }
         _fillOrderInternal(tokenIn, tokenOut, receiver, data, totalAmountToBeFilled, totalAmountToBeReturned, 0);
 
-        Rebase memory bentoBoxTotals = bentoBox.totals(tokenOut);
+        // Removed this because we overide the Ratios anyway..
+        // But have to check that ratios can't change mid way
+        // Rebase memory bentoBoxTotals = bentoBox.totals(tokenOut);
 
         for(uint256 i = 0; i < order.length; i++) {
-            bentoBox.transfer(tokenOut, address(this), order[i].recipient, bentoBoxTotals.toBase(amountToBeReturned[i], false));
+            // Second part of the change is here. Should be checked to be correct..
+            bentoBox.transfer(tokenOut, address(this), order[i].recipient, /* bentoBoxTotals.toBase*/ bentoBox.toShare(tokenOut, amountToBeReturned[i], false) );
         }
     }
 
@@ -240,7 +283,7 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
             IERC20 tokenOut,
             ILimitOrderReceiver receiver, 
             bytes calldata data) 
-    external {
+    public {
         uint256[] memory amountToBeReturned = new uint256[](order.length);
         uint256 totalAmountToBeFilled;
         uint256 totalAmountToBeReturned;
@@ -261,10 +304,10 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
 
         }
 
-        Rebase memory bentoBoxTotals = bentoBox.totals(tokenOut);
+        // Rebase memory bentoBoxTotals = bentoBox.totals(tokenOut);
 
         for(uint256 i = 0; i < order.length; i++) {
-            bentoBox.transfer(tokenOut, address(this), order[i].recipient, bentoBoxTotals.toBase(amountToBeReturned[i], false));
+            bentoBox.transfer(tokenOut, address(this), order[i].recipient, /* bentoBoxTotals.toBase */ bentoBox.toShare(tokenOut, amountToBeReturned[i], false));
         }
 
 
@@ -282,10 +325,11 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
         emit LogFeesCollected(token, feeTo, balance);
     }
 
-    function swipe (IERC20 token) public {
-        uint256 balance = token.balanceOf(address(this));
-        token.safeTransfer(feeTo, balance);
-    }
+    // I think because safeTransfer is hard to work with.. 
+    // function swipe (IERC20 token) public {
+    //     uint256 balance = token.balanceOf(address(this));
+    //     token.safeTransfer(feeTo, balance);
+    // }
 
     function setFees(address _feeTo, uint256 _externalOrderFee) external onlyOwner {
         feeTo = _feeTo;

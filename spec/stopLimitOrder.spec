@@ -1,3 +1,13 @@
+/**
+questions:
+
+1. use of bentoBoxTotals instead of bentoBox.toShare ?
+2. swipeFees - why leave one?
+3. _fillOrderInternal why return feeCollected ?
+4. financial question: why not let the receiver define how much can be fullfiled 
+
+*/
+
 
 // using DummyERC20A as tokenA
 // using DummyERC20B as tokenB
@@ -38,7 +48,7 @@ methods {
 	fillOrderOpenHarness(bytes)
 	batchFillOrderHarness(bytes)
 	batchFillOrderOpenHarness(bytes)
-	swipeFees(address) envfree
+
 
 	onLimitOrder(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountMinOut, bytes data) => DISPATCHER(true)
 	
@@ -58,10 +68,7 @@ methods {
 }
 
 ghost digestGhost(address, address, address, uint256, uint256, address, uint256, uint256, uint256, address) returns bytes32; // are there rules that require that this is one-to-one?
-
-definition MAX_UINT256() returns uint256 =
-	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
-	
+//todo - try to specify that it is a 1:1 function (injective)
 
 
 // part 1: after a cancel, the flag is on.
@@ -82,7 +89,7 @@ rule afterCancelFails2() {
 	method f;
 	env e;
 	calldataarg args;
-	sinvoke f(e, args);
+	f(e, args);
 
 	assert cancelledOrder(sender, digest);
 }
@@ -132,7 +139,7 @@ definition inOnly() returns uint = 2;
 definition sameSame() returns uint = 3;
 
 function fillOrderGeneralFunction(method f, uint type) {
-	address recipient = 1;
+	address recipient = 1; //todo no alias with
 	address maker;
 	address tokenIn;
 	address tokenOut;
@@ -421,7 +428,7 @@ rule digestSanity2() {
 
 // Check Bug
 // A livness rule should have been able to find this.
-rule CheckBug() {
+/*rule CheckBug() {
 	address recipient = 1;
 	address maker = 2;
 	address tokenIn = 3;
@@ -440,7 +447,7 @@ rule CheckBug() {
 
 	assert(false);
 	
-}
+}*/
 
 // I would also do a require in the code after onLimitOrder to see it doesn't take too much.
 // especially for melicious ones.
@@ -453,7 +460,7 @@ rule CheckBug() {
 
 // out of time order fails
 
-// change ratio.
+// change ratio. <----------------- important 
 
 // The batch are strange - even if one fails (because of stop or limit) they all fail.
 
