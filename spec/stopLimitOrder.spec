@@ -26,7 +26,7 @@ methods {
     endTimeHarness() returns (uint256) envfree
     stopPriceHarness() returns (uint256) envfree
     oracleAddressHarness() returns (address) envfree
-	oracleDataHarness() returns (bytes) envfree
+	oracleDataHarness() returns (uint) envfree
     amountToFillHarness() returns (uint256) envfree
 	vHarness() returns (uint8) envfree
     rHarness() returns (bytes32) envfree
@@ -40,7 +40,7 @@ methods {
 	feesCollected(address) returns (uint256) envfree
 	externalOrderFee() returns (uint256) envfree
 	FEE_DIVISOR() returns (uint256) envfree
-	orderStatus(bytes32) returns (uint256) envfree;
+	orderStatus(bytes32) returns (uint256) envfree
 
 
 	getDigestHarness() envfree
@@ -93,7 +93,7 @@ rule afterCancelFails2() {
 
 	assert cancelledOrder(sender, digest);
 }
-
+/*
 // part 3: if cancel flag is on then fillOrder fails 
 rule afterCancelFails3(method f) filtered { f -> 
 	f.selector == fillOrderHarness(bytes).selector || 
@@ -112,7 +112,7 @@ rule afterCancelFails3(method f) filtered { f ->
 	assert lastReverted;
 }
 
-
+*/
 // Basically:
 // recipient != bentoBox, because then onLoan can take coins from receipient instead of giving to it, because bentoBox can always be taken from.
 // Also there are mastercontract stuff in the bentobox transfer which allow transfers - this still needs to be understood better.
@@ -190,12 +190,12 @@ function fillOrderGeneralFunction(method f, uint type) {
 
 /****************************************************************************************************/
 
-
+/*
 rule fillOrderOut(method f) filtered { f -> 
-	f.selector == fillOrderHarness(bytes).selector /* || 
+	f.selector == fillOrderHarness(bytes).selector  || 
 	f.selector == fillOrderOpenHarness(bytes).selector || 
 	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
+	f.selector == batchFillOrderOpenHarness(bytes).selector  
 	} {
 	require amountToFillHarness() == amountInHarness();
 	fillOrderGeneralFunction(f, outOnly());
@@ -203,10 +203,10 @@ rule fillOrderOut(method f) filtered { f ->
 }
 
 rule fillOrderIn(method f) filtered { f -> 
-	f.selector == fillOrderHarness(bytes).selector /* || 
+	f.selector == fillOrderHarness(bytes).selector  || 
 	f.selector == fillOrderOpenHarness(bytes).selector || 
 	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
+	f.selector == batchFillOrderOpenHarness(bytes).selector  
 	} {
 	require amountToFillHarness() == amountInHarness();
 	fillOrderGeneralFunction(f, inOnly());
@@ -214,29 +214,20 @@ rule fillOrderIn(method f) filtered { f ->
 }
 
 rule fillOrderSameSame(method f) filtered { f -> 
-	f.selector == fillOrderHarness(bytes).selector /* || 
+	f.selector == fillOrderHarness(bytes).selector  || 
 	f.selector == fillOrderOpenHarness(bytes).selector || 
 	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
+	f.selector == batchFillOrderOpenHarness(bytes).selector  
 	} {
 	require amountToFillHarness() == amountInHarness();
 	fillOrderGeneralFunction(f, sameSame());
 	assert(true);
 }
 
-
+*/
 /****************************************************************************************************/
 
 
-rule fillOrderAmountToFillOut(method f) filtered { f -> 
-	f.selector == fillOrderHarness(bytes).selector /* || 
-	f.selector == fillOrderOpenHarness(bytes).selector || 
-	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
-	} {
-	fillOrderGeneralFunction(f, outOnly());
-	assert(true);
-}
 
 
 // Passes
@@ -303,7 +294,7 @@ rule CheckFees(method f) filtered { f ->
 // 	bentoBalanceOf(token, currentContract) >= feesCollected(token)
 // totally times out..
 
-
+/*
 // Should actually run this on all methods except the unharnessed versions of the fillOrder methods.
 rule CheckFeesInvariant(method f)  filtered { f -> 
 	f.selector == fillOrderOpenHarness(bytes).selector ||
@@ -323,13 +314,13 @@ rule CheckFeesInvariant(method f)  filtered { f ->
 }
 
 
-
+*/
 
 /****************************************************************************************************/
 
 
 // Doesn't work, and i don't get counter example.
-rule fillOrderLiveness()  {
+/*rule fillOrderLiveness()  {
 	address recipient = 1;
 	address maker;
 	address tokenIn;
@@ -365,11 +356,11 @@ rule fillOrderLiveness()  {
     assert !lastReverted;
 }
 
-
+*/
 
 /****************************************************************************************************/
 
-
+/*
 // See that if an order was partially filled, it cannot pass its amountIn.
 rule checkOrderStatus() {
 	address recipient = 1;
@@ -396,10 +387,10 @@ rule checkOrderStatus() {
 }
 
 
+*/
 
 
-
-
+/*
 // Should fail! indeed does.
 rule digestSanity() {
 	bytes32 digest1 = getDigestHarness();
@@ -421,7 +412,7 @@ rule digestSanity2() {
 	assert digest1 == digest2;
 }
 
-
+*/
 
 
 /****************************************************************************************************/

@@ -31,7 +31,7 @@ contract StopLimitOrderHarness is StopLimitOrder {
     uint256 public endTimeHarness;
     uint256 public stopPriceHarness;
     IOracle public oracleAddressHarness;
-    bytes public oracleDataHarness;
+    uint public oracleDataHarness;
     uint256 public amountToFillHarness;
 	uint8 public vHarness; 
     bytes32 public rHarness;
@@ -42,7 +42,7 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	}
 	
 	function createOrder() public view returns (OrderArgs memory order) {
-		order = OrderArgs(makerHarness, amountInHarness, amountOutHarness, recipientHarness, startTimeHarness, endTimeHarness, stopPriceHarness, oracleAddressHarness, /*"0", */ amountToFillHarness, vHarness, rHarness, sHarness);
+		order = OrderArgs(makerHarness, amountInHarness, amountOutHarness, recipientHarness, startTimeHarness, endTimeHarness, stopPriceHarness, oracleAddressHarness, oracleDataHarness, amountToFillHarness, vHarness, rHarness, sHarness);
 	}
 
 	function getDigestHarness() public view returns (bytes32) {
