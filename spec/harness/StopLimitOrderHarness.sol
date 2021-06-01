@@ -78,4 +78,8 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	    bytes memory data;
         data = abi.decode(msg.data[4:], (bytes));
     }
+
+	// override batch
+	function batch(bytes[] calldata calls, bool revertOnFail) external override payable returns (bool[] memory successes, bytes[] memory results) {
+	}
 }

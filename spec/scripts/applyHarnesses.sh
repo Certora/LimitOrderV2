@@ -49,3 +49,5 @@ perl -0777 -i -pe 's/function _getDigest\(OrderArgs memory order, IERC20 tokenIn
 }
 function _getDigestOld\(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut\) private/g' contracts/StopLimitOrder.sol 
 
+# Virtualize batch
+perl -0777 -i -pe 's/function batch\(bytes\[\] calldata calls, bool revertOnFail\) external/function batch\(bytes\[\] calldata calls, bool revertOnFail\) virtual external/g' node_modules/@boringcrypto/boring-solidity/contracts/BoringBatchable.sol
