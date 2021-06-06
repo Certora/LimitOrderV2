@@ -1,18 +1,26 @@
-/**
-questions:
+/*
+    This is a specification file for smart contract verification with the Certora prover.
+    For more information, visit: https://www.certora.com/
 
-1. use of bentoBoxTotals instead of bentoBox.toShare ?
-2. swipeFees - why leave one?
-3. _fillOrderInternal why return feeCollected ?
-4. financial question: why not let the receiver define how much can be fullfiled 
-
+    This file is run with scripts/...
+	Assumptions:
 */
 
-
-// using DummyERC20A as tokenA
-// using DummyERC20B as tokenB
 using SimpleOrderReceiver as receiver
 using SimpleBentoBox as bentoBox
+
+
+////////////////////////////////////////////////////////////////////////////
+//                      Methods                                           //
+////////////////////////////////////////////////////////////////////////////
+
+
+/*
+    Declaration of methods that are used in the rules.
+    envfree indicate that the method is not dependent on the environment (msg.value, msg.sender).
+    Methods that are not declared here are assumed to be dependent on env.
+*/
+
 
 methods {	
 	makerHarness() returns (address) envfree
@@ -67,12 +75,36 @@ methods {
 	whiteListReceiver(address)
 }
 
-ghost digestGhost(address, address, address, uint256, uint256, address, uint256, uint256, uint256, address) returns bytes32; // are there rules that require that this is one-to-one?
-//todo - try to specify that it is a 1:1 function (injective)
+
+////////////////////////////////////////////////////////////////////////////
+//                       Ghost                                            //
+////////////////////////////////////////////////////////////////////////////
+
+ghost digestGhost(address, address, address, uint256, uint256, address, uint256, uint256, uint256, address) returns bytes32;
 
 
-// part 1: after a cancel, the flag is on.
-rule afterCancelFails1() {
+////////////////////////////////////////////////////////////////////////////
+//                       Invariants                                       //
+////////////////////////////////////////////////////////////////////////////
+
+
+
+////////////////////////////////////////////////////////////////////////////
+//                       Rules                                            //
+////////////////////////////////////////////////////////////////////////////
+
+
+
+/* 	Rule: Integrity of Canceling the flag is on.  
+ 	Description: Performing a cancelOrder sets the cancelledOrder to true
+	Formula: 
+			{ digest = _getDigest(order{maker=u}, tIn, tOut) }
+					cancelOrder(digest)
+			{ cancelledOrder(u, digest) }	
+
+	
+*/
+rule cancelTurnsOnFlag() {
 	env e;
 	require makerHarness() == e.msg.sender;
 	bytes32 digest = getDigestHarness();
@@ -80,7 +112,16 @@ rule afterCancelFails1() {
 	assert cancelledOrder(e.msg.sender, digest);
 }
 
-// part 2: if cancel flag is on, it will always remain on.
+/* 	Rule: Integrity of Canceling the flag is on.  
+ 	Description: if cancel flag is on, it will always remain on.
+	Formula: 
+			{ cancelledOrder(u, digest) }
+					op
+			{ cancelledOrder(u, digest) }	
+
+	
+*/
+// part 2: 
 rule afterCancelFails2() {
 	bytes32 digest;
 	address sender;
@@ -419,7 +460,7 @@ rule digestSanity2() {
 
 // Check Bug
 // A livness rule should have been able to find this.
-/*rule CheckBug() {
+rule CheckBug() {
 	address recipient = 1;
 	address maker = 2;
 	address tokenIn = 3;
@@ -438,7 +479,7 @@ rule digestSanity2() {
 
 	assert(false);
 	
-}*/
+} 
 
 // I would also do a require in the code after onLimitOrder to see it doesn't take too much.
 // especially for melicious ones.

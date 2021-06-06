@@ -2,5 +2,6 @@ certoraRun spec/harness/StopLimitOrderHarness.sol spec/harness/SimpleBentoBox.so
     --verify StopLimitOrderHarness:spec/stopLimitOrder.spec \
     --link StopLimitOrderHarness:bentoBox=SimpleBentoBox \
     --link SimpleOrderReceiver:bentoBox=SimpleBentoBox \
-    --settings -enableStorageAnalysis=true,-ignoreViewFunctions,-assumeUnwindCond,-patient=30,-rule=$1 ֿ\
-    --msg "StopLimitOrder $1 $2"
+    --settings -enableStorageAnalysis=true,-ignoreViewFunctions,-assumeUnwindCond \
+    --rule $1 \
+    --msg "StopLimitOrder $1 : $2" --staging
