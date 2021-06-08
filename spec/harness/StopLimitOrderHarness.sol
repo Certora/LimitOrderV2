@@ -58,17 +58,21 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	}
 
 	function batchFillOrderHarness(bytes calldata data) public {
+		/*
 		OrderArgs[] memory orders = new OrderArgs[](1); 
 		orders[0] = createOrder();
 
 		batchFillOrder(orders, tokenInHarness, tokenOutHarness, receiverHarness, data);
+		*/
 	 }
 
-	function batchFillOrderOpenHarness(bytes calldata data) public {
+	function batchFillOrderOpenHarness(bytes calldata data) public { 
+	/*
 		OrderArgs[] memory orders = new OrderArgs[](1); 
 		orders[0] = createOrder();
 
 		batchFillOrderOpen(orders, tokenInHarness, tokenOutHarness, receiverHarness, data);
+	*/
 	}
 
 	//todo - override all functions and use super. ... 

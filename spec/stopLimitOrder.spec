@@ -23,6 +23,8 @@ using SimpleBentoBox as bentoBox
 
 
 methods {	
+
+	// global variables used to construct an order structure
 	makerHarness() returns (address) envfree
 	receiverHarness() returns (address) envfree
 	tokenInHarness() returns (address) envfree
@@ -39,9 +41,20 @@ methods {
 	vHarness() returns (uint8) envfree
     rHarness() returns (bytes32) envfree
     sHarness() returns (bytes32) envfree
+	
+	// wrappers to fill order functions
+	fillOrderHarness(bytes)
+	fillOrderOpenHarness(bytes)
+	batchFillOrderHarness(bytes)
+	batchFillOrderOpenHarness(bytes)
 
-	setStopPrice(uint256) envfree
-		
+	// simplifications to code
+	abstract_keccak256(address maker, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, address oracleAddress, uint256 oracleData) returns(bytes32) envfree => 
+	
+		digestGhost(maker, tokenIn, tokenOut, amountIn, amountOut, recipient, startTime, endTime, stopPrice, oracleAddress, oracleData)
+
+	
+	// getters 	
 	bentoBalanceOf(address, address) returns (uint256) envfree
 	cancelledOrder(address sender, bytes32 hash) returns (bool) envfree
 	feeTo() returns (address) envfree
@@ -49,20 +62,20 @@ methods {
 	externalOrderFee() returns (uint256) envfree
 	FEE_DIVISOR() returns (uint256) envfree
 	orderStatus(bytes32) returns (uint256) envfree
-
-
 	getDigestHarness() envfree
-	fillOrderHarness(bytes)
-	fillOrderOpenHarness(bytes)
-	batchFillOrderHarness(bytes)
-	batchFillOrderOpenHarness(bytes)
 
-
+	// receiver
 	onLimitOrder(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountMinOut, bytes data) => DISPATCHER(true)
-	
-	abstract_keccak256(address maker, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, address oracleAddress) returns(bytes32) envfree => digestGhost(maker, tokenIn, tokenOut, amountIn, amountOut, recipient, startTime, endTime, stopPrice, oracleAddress)
 
+	// bentobox	
 	toAmount(address token, uint256 share, bool roundUp) returns (uint256) envfree => DISPATCHER(true)
+
+	// oracle
+	get(uint) returns (bool, uint256) => NONDET
+
+
+	// TODO - check if redundant 
+	setStopPrice(uint256) envfree
 
 	token1() returns (address) envfree => DISPATCHER(true)
 	to1() returns (address) envfree => DISPATCHER(true)
@@ -80,7 +93,8 @@ methods {
 //                       Ghost                                            //
 ////////////////////////////////////////////////////////////////////////////
 
-ghost digestGhost(address, address, address, uint256, uint256, address, uint256, uint256, uint256, address) returns bytes32;
+ghost digestGhost(address, address, address, uint256, uint256, address, uint256, 
+				uint256, uint256, address, uint256) returns bytes32;
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -95,7 +109,8 @@ ghost digestGhost(address, address, address, uint256, uint256, address, uint256,
 
 
 
-/* 	Rule: Integrity of Canceling the flag is on.  
+/*** 	
+	Rule: Integrity of Canceling the flag is on.  
  	Description: Performing a cancelOrder sets the cancelledOrder to true
 	Formula: 
 			{ digest = _getDigest(order{maker=u}, tIn, tOut) }
@@ -103,8 +118,8 @@ ghost digestGhost(address, address, address, uint256, uint256, address, uint256,
 			{ cancelledOrder(u, digest) }	
 
 	
-*/
-rule cancelTurnsOnFlag() {
+***/
+rule cancelTurnsOnFlag() { 
 	env e;
 	require makerHarness() == e.msg.sender;
 	bytes32 digest = getDigestHarness();
@@ -112,7 +127,8 @@ rule cancelTurnsOnFlag() {
 	assert cancelledOrder(e.msg.sender, digest);
 }
 
-/* 	Rule: Integrity of Canceling the flag is on.  
+/***
+ 	Rule: Always cancelled.  
  	Description: if cancel flag is on, it will always remain on.
 	Formula: 
 			{ cancelledOrder(u, digest) }
@@ -120,9 +136,8 @@ rule cancelTurnsOnFlag() {
 			{ cancelledOrder(u, digest) }	
 
 	
-*/
-// part 2: 
-rule afterCancelFails2() {
+***/
+rule onceCancelledAlways() {
 	bytes32 digest;
 	address sender;
 	require cancelledOrder(sender, digest);
@@ -134,42 +149,69 @@ rule afterCancelFails2() {
 
 	assert cancelledOrder(sender, digest);
 }
-/*
-// part 3: if cancel flag is on then fillOrder fails 
-rule afterCancelFails3(method f) filtered { f -> 
-	f.selector == fillOrderHarness(bytes).selector || 
-	f.selector == fillOrderOpenHarness(bytes).selector || 
-	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector 
-	} {
-	address maker;	
-	require makerHarness() == maker;
-	bytes32 digest = getDigestHarness();
 
-	require cancelledOrder(maker, digest);
-	calldataarg args;
-	env e;
-	f(e, args);
-	assert lastReverted;
-}
 
+/*** 	
+	Rule: A cancelled order can not be filled.  
+ 	Description: any of the fill order function reverts when the order is cancelled 
+	Formula: 
+			{ cancelledOrder(u, digest) }
+					r = op
+			{ false }
+			where op is any of the fillOrder operation returns false if failed	
+
+	
+***/
+rule cancelledCanNotBeFilled(method f) 
+	filtered { f -> 
+		f.selector == fillOrderHarness(bytes).selector || 
+		f.selector == fillOrderOpenHarness(bytes).selector || 
+		f.selector ==  batchFillOrderHarness(bytes).selector || 
+		f.selector == batchFillOrderOpenHarness(bytes).selector }  
+	{
+		address maker;	
+		require makerHarness() == maker;
+		bytes32 digest = getDigestHarness();
+
+		require cancelledOrder(maker, digest);
+		calldataarg args;
+		env e;
+		f(e, args);
+		assert lastReverted;
+	}
+
+
+/* 	Rule: Fill order is up to the amountIn
+ 	Description: The total filled amount of an order is never more than the amountIn
+	Formula: 
+
+			orderStatus(digest(order)) <= order.amountIn
+			
 */
-// Basically:
-// recipient != bentoBox, because then onLoan can take coins from receipient instead of giving to it, because bentoBox can always be taken from.
-// Also there are mastercontract stuff in the bentobox transfer which allow transfers - this still needs to be understood better.
+rule orderStatusLeAmountToFill(method f) 
+	filtered { f -> 
+		f.selector == fillOrderHarness(bytes).selector  || 
+		f.selector == fillOrderOpenHarness(bytes).selector } 
+	{
+		address maker;
+		address recipient; 
+		address tokenIn;
+		address tokenOut;
+		uint256 amountIn;
+		uint256 amountToFill;
+		uint256 amountOut;
+		prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+		bytes32 digest = getDigestHarness();
 
+		uint256 orderStatusBefore = orderStatus(digest);
+		require orderStatusBefore <= amountInHarness();
+		calldataarg args;
+		env e;
+		f(e, args);
+		uint256 orderStatusAfter = orderStatus(digest);
+		assert orderStatusAfter <= amountInHarness();
 
-function prepare(address recipient, address maker, address tokenIn, address tokenOut, uint256 amountIn, uint amountToFill, uint256 amountOut) {
-	require receiverHarness() == receiver;
-
-	require recipientHarness() == recipient;	
-	require makerHarness() == maker;
-	require tokenInHarness() == tokenIn;
-	require tokenOutHarness() == tokenOut;
-	require amountInHarness() == amountIn;
-	require amountToFillHarness() == amountToFill;
-	require amountOutHarness() == amountOut;
-}
+	}
 
 
 
@@ -179,55 +221,62 @@ definition outOnly() returns uint = 1;
 definition inOnly() returns uint = 2;
 definition sameSame() returns uint = 3;
 
-function fillOrderGeneralFunction(method f, uint type) {
-	address recipient = 1; //todo no alias with
-	address maker;
-	address tokenIn;
-	address tokenOut;
-	uint256 amountIn;
-	uint256 amountToFill;
-	uint256 amountOut;
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+rule fillOrderGeneralFunction(method f, uint type) 
+	filtered { f -> 
+		f.selector == fillOrderHarness(bytes).selector /* || 
+		f.selector == fillOrderOpenHarness(bytes).selector */} 
+	{
 
-	if (type == sameSame())
-	 	require (maker == recipient) && (tokenIn == tokenOut);
-	else
-	 	require (maker == 2) || ((maker == recipient) && (tokenIn != tokenOut));
-
-	require amountIn != 0;
-	uint256 expectedAmountOut = amountOut * amountToFill / amountIn;
-
-	uint256 _bentoBalanceOut;
-	uint256 _bentoBalanceIn;	
-	uint256 bentoBalanceOut_;
-	uint256 bentoBalanceIn_;
-	
-	if (type == sameSame() || type == outOnly())
-		require _bentoBalanceOut == bentoBalanceOf(tokenOut, recipient);
-	else 
-		require _bentoBalanceIn == bentoBalanceOf(tokenIn, maker);	
-
-	calldataarg args;
-	env e;
-	f(e, args);
-
-	if (type == sameSame() || type == outOnly())
-		require bentoBalanceOut_ == bentoBalanceOf(tokenOut, recipient);
-	else 
-		require bentoBalanceIn_ == bentoBalanceOf(tokenIn, maker);	
-
-
-	if (type == sameSame() || type == outOnly()) {
-		uint256 _bentoBalanceOutCoins = bentoBox.toAmount(tokenOut, _bentoBalanceOut, false);
-		uint256 bentoBalanceOutCoins_ = bentoBox.toAmount(tokenOut, bentoBalanceOut_, false);
-		if (type == sameSame())
-			// Actually this is probably incorrect if we change ratio from 1..
-			assert bentoBalanceOutCoins_ >= _bentoBalanceOutCoins + expectedAmountOut - amountToFill;
+		address recipient = 1; //todo no alias with
+		address maker;
+		address tokenIn;
+		address tokenOut;
+		uint256 amountIn;
+		uint256 amountToFill;
+		uint256 amountOut;
+		prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+		require tokenIn != tokenOut;
+		require maker != recipient;
+		require maker != currentContract;
+	/*	if (type == sameSame())
+			require (maker == recipient) && (tokenIn == tokenOut);
 		else
-			assert bentoBalanceOutCoins_ + 1 >= _bentoBalanceOutCoins + expectedAmountOut;
-	} else 
-		assert bentoBalanceIn_ >= _bentoBalanceIn - amountToFill;
-}
+			require (maker == 2) || ((maker == recipient) && (tokenIn != tokenOut));
+	*/
+		require amountIn != 0;
+		uint256 expectedAmountOut = amountOut * amountToFill / amountIn;
+
+		uint256 _bentoBalanceOut;
+		uint256 _bentoBalanceIn;	
+		uint256 bentoBalanceOut_;
+		uint256 bentoBalanceIn_;
+		
+		//if (type == sameSame() || type == outOnly())
+			require _bentoBalanceOut == bentoBalanceOf(tokenOut, recipient);
+		//else 
+			require _bentoBalanceIn == bentoBalanceOf(tokenIn, maker);	
+
+		calldataarg args;
+		env e;
+		f(e, args);
+
+	//	if (type == sameSame() || type == outOnly())
+			require bentoBalanceOut_ == bentoBalanceOf(tokenOut, recipient);
+	//	else 
+			require bentoBalanceIn_ == bentoBalanceOf(tokenIn, maker);	
+
+
+	//	if (type == sameSame() || type == outOnly()) {
+			uint256 _bentoBalanceOutCoins = bentoBox.toAmount(tokenOut, _bentoBalanceOut, false);
+			uint256 bentoBalanceOutCoins_ = bentoBox.toAmount(tokenOut, bentoBalanceOut_, false);
+	//		if (type == sameSame())
+				// Actually this is probably incorrect if we change ratio from 1..
+		//		assert bentoBalanceOutCoins_ >= _bentoBalanceOutCoins + expectedAmountOut - amountToFill;
+		//	else
+				assert bentoBalanceOutCoins_ + 1 >= _bentoBalanceOutCoins + expectedAmountOut;
+		//} else 
+			assert bentoBalanceIn_ >= _bentoBalanceIn - amountToFill;
+	}
 
 /****************************************************************************************************/
 
@@ -278,7 +327,7 @@ rule fillOrderAmountToFillIn(method f) filtered { f ->
 	f.selector ==  batchFillOrderHarness(bytes).selector || 
 	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
 	} {
-	fillOrderGeneralFunction(f, inOnly());
+//	fillOrderGeneralFunction(f, inOnly());
 	assert(true);
 }
 
@@ -289,7 +338,7 @@ rule fillOrderAmountToFillSameSame(method f) filtered { f ->
 	f.selector ==  batchFillOrderHarness(bytes).selector || 
 	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
 	} {
-	fillOrderGeneralFunction(f, sameSame());
+//	fillOrderGeneralFunction(f, sameSame());
 	assert(true);
 }
 
@@ -335,7 +384,7 @@ rule CheckFees(method f) filtered { f ->
 // 	bentoBalanceOf(token, currentContract) >= feesCollected(token)
 // totally times out..
 
-/*
+
 // Should actually run this on all methods except the unharnessed versions of the fillOrder methods.
 rule CheckFeesInvariant(method f)  filtered { f -> 
 	f.selector == fillOrderOpenHarness(bytes).selector ||
@@ -355,7 +404,7 @@ rule CheckFeesInvariant(method f)  filtered { f ->
 }
 
 
-*/
+
 
 /****************************************************************************************************/
 
@@ -480,6 +529,30 @@ rule CheckBug() {
 	assert(false);
 	
 } 
+
+
+////////////////////////////////////////////////////////////////////////////
+//                       Helper Functions                                 //
+////////////////////////////////////////////////////////////////////////////
+
+
+// Basically:
+// recipient != bentoBox, because then onLoan can take coins from receipient instead of giving to it, because bentoBox can always be taken from.
+// Also there are mastercontract stuff in the bentobox transfer which allow transfers - this still needs to be understood better.
+
+
+function prepare(address recipient, address maker, address tokenIn, address tokenOut, uint256 amountIn, uint amountToFill, uint256 amountOut) {
+	require receiverHarness() == receiver;
+
+	require recipientHarness() == recipient;	
+	require makerHarness() == maker;
+	require tokenInHarness() == tokenIn;
+	require tokenOutHarness() == tokenOut;
+	require amountInHarness() == amountIn;
+	require amountToFillHarness() == amountToFill;
+	require amountOutHarness() == amountOut;
+}
+
 
 // I would also do a require in the code after onLimitOrder to see it doesn't take too much.
 // especially for melicious ones.
