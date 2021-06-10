@@ -96,12 +96,31 @@ methods {
 ghost digestGhost(address, address, address, uint256, uint256, address, uint256, 
 				uint256, uint256, address, uint256) returns bytes32;
 
-
 ////////////////////////////////////////////////////////////////////////////
 //                               Invariants                               //
 ////////////////////////////////////////////////////////////////////////////
+// Both are same, we need to check which one works
+// Checks that the contract indeed holds feesCollected tokens.
+// invariant feesInvariant(address token) 
+// 	bentoBalanceOf(token, currentContract) >= feesCollected(token)
+// totally times out..
 
+// Should actually run this on all methods except the unharnessed versions of the fillOrder methods.
+rule CheckFeesInvariant(method f)  filtered {f -> 
+	f.selector == fillOrderOpenHarness(bytes).selector ||
+	f.selector == swipeFees(address).selector} {
+	// otherwise the order takes away the fees to the receiver.
+	require makerHarness() != currentContract;
 
+	address token; 
+	require bentoBalanceOf(token, currentContract) >= feesCollected(token);
+
+	calldataarg args;
+	env e;
+	f(e, args);
+
+	assert bentoBalanceOf(token, currentContract) >= feesCollected(token);
+}
 
 ////////////////////////////////////////////////////////////////////////////
 //                                 Rules                                  //
@@ -114,11 +133,14 @@ ghost digestGhost(address, address, address, uint256, uint256, address, uint256,
 					cancelOrder(digest)
 			{ cancelledOrder(u, digest) }
 */
-rule cancelTurnsOnFlag() { 
+rule cancelTurnsOnFlag() {
 	env e;
+
 	require makerHarness() == e.msg.sender;
+
 	bytes32 digest = getDigestHarness();
 	cancelOrder(e, digest);
+
 	assert cancelledOrder(e.msg.sender, digest);
 }
 
@@ -131,12 +153,13 @@ rule cancelTurnsOnFlag() {
 			{ cancelledOrder(u, digest) }
 */
 rule onceCancelledAlways() {
-	bytes32 digest;
-	address sender;
-	require cancelledOrder(sender, digest);
-
 	method f;
 	env e;
+	bytes32 digest;
+	address sender;
+
+	require cancelledOrder(sender, digest);
+	
 	calldataarg args;
 	f(e, args);
 
@@ -152,35 +175,35 @@ rule onceCancelledAlways() {
 			{ false }
 			where op is any of the fillOrder operation returns false if failed
 */
-rule cancelledCanNotBeFilled(method f) 
-	filtered { f -> 
-		f.selector == fillOrderHarness(bytes).selector || 
-		f.selector == fillOrderOpenHarness(bytes).selector || 
-		f.selector ==  batchFillOrderHarness(bytes).selector || 
-		f.selector == batchFillOrderOpenHarness(bytes).selector }  
-	{
-		address maker;	
-		require makerHarness() == maker;
+rule cancelledCannotBeFilled(method f) 
+	filtered {f -> 
+			  f.selector == fillOrderHarness(bytes).selector || 
+			  f.selector == fillOrderOpenHarness(bytes).selector || 
+			  f.selector ==  batchFillOrderHarness(bytes).selector || 
+			  f.selector == batchFillOrderOpenHarness(bytes).selector} {
+		address maker;
 		bytes32 digest = getDigestHarness();
 
+		require makerHarness() == maker;
 		require cancelledOrder(maker, digest);
+
 		calldataarg args;
 		env e;
 		f(e, args);
+
 		assert lastReverted;
 	}
 
-/* 	Rule: Fill order is up to the amountIn
+/* 	
+	Rule: Fill order is up to the amountIn
  	Description: The total filled amount of an order is never more than the amountIn
 	Formula: 
-
 			orderStatus(digest(order)) <= order.amountIn		
 */
 rule orderStatusLeAmountToFill(method f) 
-	filtered { f -> 
-		f.selector == fillOrderHarness(bytes).selector  || 
-		f.selector == fillOrderOpenHarness(bytes).selector } 
-	{
+	filtered {f -> 
+		      f.selector == fillOrderHarness(bytes).selector || 
+		      f.selector == fillOrderOpenHarness(bytes).selector} {
 		address maker;
 		address recipient; 
 		address tokenIn;
@@ -189,19 +212,104 @@ rule orderStatusLeAmountToFill(method f)
 		uint256 amountToFill;
 		uint256 amountOut;
 		prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
-		bytes32 digest = getDigestHarness();
 
+		bytes32 digest = getDigestHarness();
 		uint256 orderStatusBefore = orderStatus(digest);
+
 		require orderStatusBefore <= amountInHarness();
+
 		calldataarg args;
 		env e;
 		f(e, args);
-		uint256 orderStatusAfter = orderStatus(digest);
-		assert orderStatusAfter <= amountInHarness();
 
+		uint256 orderStatusAfter = orderStatus(digest);
+		
+		assert orderStatusAfter <= amountInHarness();
 	}
 
-/****************************************************************************************************/
+// Checks fees are collected correctly.
+// this one passes but is pretty heavy.
+rule CheckFees(method f) filtered { f -> 
+	f.selector == fillOrderOpenHarness(bytes).selector 
+	// || f.selector == batchFillOrderOpenHarness(bytes).selector 
+	} {
+	address recipient = 1;
+	address maker;
+	address tokenIn;
+	address tokenOut;
+	uint256 amountIn;
+	uint256 amountToFill = amountIn;	
+	uint256 expectedFee;
+	uint256 amountOut = 4 * expectedFee;
+
+	require (maker == 2) || (maker == 1);
+	require expectedFee < 10000000;
+	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+
+	require externalOrderFee() == FEE_DIVISOR() / 4;
+
+	uint256 _feesCollected = feesCollected(tokenOut);
+
+	calldataarg args;
+	env e;
+	f(e, args);
+
+	uint256 feesCollected_ = feesCollected(tokenOut);
+
+	assert feesCollected_ >= _feesCollected + expectedFee;
+}
+
+// work on this to write it properly and make it pass
+/*
+// See that if an order was partially filled, it cannot pass its amountIn.
+rule checkOrderStatus() {
+	address recipient = 1;
+	address maker;
+	address tokenIn;
+	address tokenOut;
+	uint256 amountOut;
+	uint256 amountToFill;
+	uint256 amountIn;
+	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+	require maker == 1 || maker == 2;
+	
+	bytes32 digest = getDigestHarness();
+	uint256 already = orderStatus(digest);
+
+	require amountToFill + already > amountIn;
+
+	// this should fail
+	env e;
+	calldataarg args;
+    fillOrderHarness@withrevert(e, args);
+
+	assert lastReverted;
+}
+*/
+
+////////////////////////////////////////////////////////////////////////////
+//                            Helper Functions                            //
+////////////////////////////////////////////////////////////////////////////
+// Change the order of params
+// Basically:
+// recipient != bentoBox, because then onLoan can take coins from receipient instead of giving to it, because bentoBox can always be taken from.
+// Also there are mastercontract stuff in the bentobox transfer which allow transfers - this still needs to be understood better.
+function prepare(address recipient, address maker, address tokenIn,
+			     address tokenOut, uint256 amountIn, uint amountToFill, uint256 amountOut) {
+	require recipientHarness() == recipient;	
+	require makerHarness() == maker;
+	require amountInHarness() == amountIn;
+	require amountToFillHarness() == amountToFill;
+	require amountOutHarness() == amountOut;
+
+	require receiverHarness() == receiver;
+	require tokenInHarness() == tokenIn;
+	require tokenOutHarness() == tokenOut;
+}
+
+////////////////////////////////////////////////////////////////////////////
+//                                Temporary                               //
+////////////////////////////////////////////////////////////////////////////
 definition outOnly() returns uint = 1;
 definition inOnly() returns uint = 2;
 definition sameSame() returns uint = 3;
@@ -263,123 +371,6 @@ rule fillOrderGeneralFunction(method f, uint type)
 			assert bentoBalanceIn_ >= _bentoBalanceIn - amountToFill;
 	}
 
-/****************************************************************************************************/
-
-/*
-rule fillOrderOut(method f) filtered { f -> 
-	f.selector == fillOrderHarness(bytes).selector  || 
-	f.selector == fillOrderOpenHarness(bytes).selector || 
-	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector  
-	} {
-	require amountToFillHarness() == amountInHarness();
-	fillOrderGeneralFunction(f, outOnly());
-	assert(true);
-}
-
-rule fillOrderIn(method f) filtered { f -> 
-	f.selector == fillOrderHarness(bytes).selector  || 
-	f.selector == fillOrderOpenHarness(bytes).selector || 
-	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector  
-	} {
-	require amountToFillHarness() == amountInHarness();
-	fillOrderGeneralFunction(f, inOnly());
-	assert(true);
-}
-
-rule fillOrderSameSame(method f) filtered { f -> 
-	f.selector == fillOrderHarness(bytes).selector  || 
-	f.selector == fillOrderOpenHarness(bytes).selector || 
-	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector  
-	} {
-	require amountToFillHarness() == amountInHarness();
-	fillOrderGeneralFunction(f, sameSame());
-	assert(true);
-}
-*/
-
-/****************************************************************************************************/
-// Passes
-rule fillOrderAmountToFillIn(method f) filtered { f -> 
-	f.selector == fillOrderHarness(bytes).selector /* || 
-	f.selector == fillOrderOpenHarness(bytes).selector || 
-	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
-	} {
-//	fillOrderGeneralFunction(f, inOnly());
-	assert(true);
-}
-
-rule fillOrderAmountToFillSameSame(method f) filtered { f -> 
-	f.selector == fillOrderHarness(bytes).selector /* || 
-	f.selector == fillOrderOpenHarness(bytes).selector || 
-	f.selector ==  batchFillOrderHarness(bytes).selector || 
-	f.selector == batchFillOrderOpenHarness(bytes).selector */ 
-	} {
-//	fillOrderGeneralFunction(f, sameSame());
-	assert(true);
-}
-
-/****************************************************************************************************/
-// Checks fees are collected correctly.
-// this one passes but is pretty heavy.
-rule CheckFees(method f) filtered { f -> 
-	f.selector == fillOrderOpenHarness(bytes).selector 
-	// || f.selector == batchFillOrderOpenHarness(bytes).selector 
-	} {
-	address recipient = 1;
-	address maker;
-	address tokenIn;
-	address tokenOut;
-	uint256 amountIn;
-	uint256 amountToFill = amountIn;	
-	uint256 expectedFee;
-	uint256 amountOut = 4 * expectedFee;
-
-	require (maker == 2) || (maker == 1);
-	require expectedFee < 10000000;
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
-
-	require externalOrderFee() == FEE_DIVISOR() / 4;
-
-	uint256 _feesCollected = feesCollected(tokenOut);
-
-	calldataarg args;
-	env e;
-	f(e, args);
-
-	uint256 feesCollected_ = feesCollected(tokenOut);
-
-	assert feesCollected_ >= _feesCollected + expectedFee;
-}
-
-// Checks that the contract indeed holds feesCollected tokens.
-// invariant feesInvariant(address token) 
-// 	bentoBalanceOf(token, currentContract) >= feesCollected(token)
-// totally times out..
-
-// Should actually run this on all methods except the unharnessed versions of the fillOrder methods.
-rule CheckFeesInvariant(method f)  filtered { f -> 
-	f.selector == fillOrderOpenHarness(bytes).selector ||
-	f.selector == swipeFees(address).selector   
-	} {
-	// otherwise the order takes away the fees to the receiver.
-	require makerHarness() != currentContract;
-
-	address token; 
-	require bentoBalanceOf(token, currentContract) >= feesCollected(token);
-
-	calldataarg args;
-	env e;
-	f(e, args);
-
-	assert bentoBalanceOf(token, currentContract) >= feesCollected(token);
-}
-
-/****************************************************************************************************/
-
 // Doesn't work, and i don't get counter example.
 /*
 rule fillOrderLiveness()  {
@@ -419,59 +410,7 @@ rule fillOrderLiveness()  {
 }
 */
 
-/****************************************************************************************************/
-
 /*
-// See that if an order was partially filled, it cannot pass its amountIn.
-rule checkOrderStatus() {
-	address recipient = 1;
-	address maker;
-	address tokenIn;
-	address tokenOut;
-	uint256 amountOut;
-	uint256 amountToFill;
-	uint256 amountIn;
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
-	require maker == 1 || maker == 2;
-	
-	bytes32 digest = getDigestHarness();
-	uint256 already = orderStatus(digest);
-
-	require amountToFill + already > amountIn;
-
-	// this should fail
-	env e;
-	calldataarg args;
-    fillOrderHarness@withrevert(e, args);
-
-	assert lastReverted;
-}
-*/
-
-/*
-// Should fail! indeed does.
-rule digestSanity() {
-	bytes32 digest1 = getDigestHarness();
-
-	uint256 newStopPrice;
-	setStopPrice(newStopPrice);
-
-	bytes32 digest2 = getDigestHarness();
-	
-	assert digest1 == digest2;
-}
-
-// should pass. and it does.
-rule digestSanity2() {
-	bytes32 digest1 = getDigestHarness();
-
-	bytes32 digest2 = getDigestHarness();
-	
-	assert digest1 == digest2;
-}
-*/
-
-/****************************************************************************************************/
 // Check Bug
 // A livness rule should have been able to find this.
 rule CheckBug() {
@@ -493,24 +432,7 @@ rule CheckBug() {
 
 	assert(false);
 }
-
-////////////////////////////////////////////////////////////////////////////
-//                            Helper Functions                            //
-////////////////////////////////////////////////////////////////////////////
-// Basically:
-// recipient != bentoBox, because then onLoan can take coins from receipient instead of giving to it, because bentoBox can always be taken from.
-// Also there are mastercontract stuff in the bentobox transfer which allow transfers - this still needs to be understood better.
-function prepare(address recipient, address maker, address tokenIn, address tokenOut, uint256 amountIn, uint amountToFill, uint256 amountOut) {
-	require receiverHarness() == receiver;
-
-	require recipientHarness() == recipient;	
-	require makerHarness() == maker;
-	require tokenInHarness() == tokenIn;
-	require tokenOutHarness() == tokenOut;
-	require amountInHarness() == amountIn;
-	require amountToFillHarness() == amountToFill;
-	require amountOutHarness() == amountOut;
-}
+*/
 
 // I would also do a require in the code after onLimitOrder to see it doesn't take too much.
 // especially for melicious ones.
