@@ -3,4 +3,4 @@ certoraRun spec/harness/StopLimitOrderHarness.sol spec/harness/SimpleBentoBox.so
     --link StopLimitOrderHarness:bentoBox=SimpleBentoBox \
     --link SimpleOrderReceiver:bentoBox=SimpleBentoBox \
     --settings -enableStorageAnalysis=true,-ignoreViewFunctions,-assumeUnwindCond,-postProcessCounterExamples=true \
-    --msg "StopLimitOrder" --staging
+    --msg "StopLimitOrder ALL : $1" --staging shelly/fixMemorySplitter

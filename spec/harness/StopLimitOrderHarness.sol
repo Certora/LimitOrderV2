@@ -31,9 +31,8 @@ contract StopLimitOrderHarness is StopLimitOrder {
 		return bentoBox.balanceOf(token, user);
 	}
 
-	// currently i just commented this call in the code.. so this is not used. -- remove (Ask Nurit)
 	address public ecrecover_return;
-	function _ecrecover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) public view returns (address) {
+	function ec_recover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) external view returns (address) {
 		return ecrecover_return;
 	}
 
@@ -88,4 +87,15 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	// overwriting batch for simplification
 	function batch(bytes[] calldata calls, bool revertOnFail) external override
 		payable returns (bool[] memory successes, bytes[] memory results) { }
+
+
+
+	// simplify computation
+	mapping(uint256 => mapping(uint256 => mapping(uint256 => uint256))) public amountToBeReturned;
+
+	function computAmoutOut(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled ) external view returns (uint256) {
+		uint256 res =  amountToBeReturned[amountIn][amountOut][amountToBeFilled];
+		require(res <= amountOut );
+		require(res < amountOut || amountIn == amountToBeFilled);
+	}
 }
