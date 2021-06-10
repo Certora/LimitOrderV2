@@ -26,6 +26,7 @@ perl -0777 -i -pe 's/keccak256\(order.oracleData\)/order.oracleData/g' contracts
 # Add ghost
 perl -0777 -i -pe 's/contract StopLimitOrder/interface A {
         function abstract_keccak256\(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress, uint oracleData\) external\/*trick*\/ pure returns \(bytes32\);
+        function ec_recover\(bytes32 digest, uint8 v, bytes32 r, bytes32 s\) external view returns \(address\); 
     }
     contract  StopLimitOrder/g' contracts/StopLimitOrder.sol
 perl -0777 -i -pe 's/struct OrderArgs/A public a;
@@ -48,6 +49,9 @@ perl -0777 -i -pe 's/function _getDigest\(OrderArgs memory order, IERC20 tokenIn
     \);
 }
 function _getDigestOld\(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut\) private/g' contracts/StopLimitOrder.sol 
+
+# Simplify ecrecover
+perl -0777 -i -pe 's/ecrecover/a.ec_recover/g' contracts/StopLimitOrder.sol 
 
 # Virtualize batch
 perl -0777 -i -pe 's/function batch\(bytes\[\] calldata calls, bool revertOnFail\) external/function batch\(bytes\[\] calldata calls, bool revertOnFail\) virtual external/g' node_modules/@boringcrypto/boring-solidity/contracts/BoringBatchable.sol
