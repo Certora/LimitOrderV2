@@ -1,7 +1,7 @@
 # SafeTransfer simplification
-#sed -i 's/safeT/t/g' contracts/BentoBoxPlus.sol
-#sed -i 's/safeT/t/g' contracts/LendingPair.sol
-#perl -0777 -i -pe 's/safeT/t/g' contracts/StopLimitOrder.sol
+# sed -i 's/safeT/t/g' contracts/BentoBoxPlus.sol
+# sed -i 's/safeT/t/g' contracts/LendingPair.sol
+# perl -0777 -i -pe 's/safeT/t/g' contracts/StopLimitOrder.sol
 
 # Virtualize functions
 perl -0777 -i -pe 's/public payable \{/public virtual payable \{/g' node_modules/@sushiswap/bentobox-sdk/contracts/BentoBoxV1.sol
