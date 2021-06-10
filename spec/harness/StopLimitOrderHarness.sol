@@ -3,26 +3,8 @@ pragma experimental ABIEncoderV2;
 
 import "../../contracts/StopLimitOrder.sol";
 
-
 contract StopLimitOrderHarness is StopLimitOrder {
-	constructor(uint256 _externalOrderFee, IBentoBoxV1 _bentoBox) StopLimitOrder(_externalOrderFee, _bentoBox) public { }
-	
-	function bentoBalanceOf(IERC20 token, address user) public view returns (uint256) {
-		return bentoBox.balanceOf(token, user);
-	}
-
-
-	// currently i just commented this call in the code.. so this is not used.
-	address public ecrecover_return;
-	function _ecrecover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) public view returns (address) {
-		return ecrecover_return;
-	}
-
-
-	ILimitOrderReceiver public receiverHarness;
-	IERC20 public tokenInHarness;
-	IERC20 public tokenOutHarness;
-	
+	// fields of the struct OrderArgs
 	address public makerHarness; 
 	uint256 public amountInHarness;
 	uint256 public amountOutHarness; 
@@ -37,12 +19,33 @@ contract StopLimitOrderHarness is StopLimitOrder {
     bytes32 public rHarness;
     bytes32 public sHarness;
 
+	// variables used in StopLimitOrder
+	ILimitOrderReceiver public receiverHarness;
+	IERC20 public tokenInHarness;
+	IERC20 public tokenOutHarness;
+
+	constructor(uint256 _externalOrderFee, IBentoBoxV1 _bentoBox)
+	 StopLimitOrder(_externalOrderFee, _bentoBox) public { }
+	
+	function bentoBalanceOf(IERC20 token, address user) public view returns (uint256) {
+		return bentoBox.balanceOf(token, user);
+	}
+
+	// currently i just commented this call in the code.. so this is not used. -- remove (Ask Nurit)
+	address public ecrecover_return;
+	function _ecrecover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) public view returns (address) {
+		return ecrecover_return;
+	}
+
 	function setStopPrice(uint256 val) public {
 		stopPriceHarness = val;
 	}
 	
 	function createOrder() public view returns (OrderArgs memory order) {
-		order = OrderArgs(makerHarness, amountInHarness, amountOutHarness, recipientHarness, startTimeHarness, endTimeHarness, stopPriceHarness, oracleAddressHarness, oracleDataHarness, amountToFillHarness, vHarness, rHarness, sHarness);
+		order = OrderArgs(makerHarness, amountInHarness, amountOutHarness,
+						  recipientHarness, startTimeHarness, endTimeHarness, 
+						  stopPriceHarness, oracleAddressHarness, oracleDataHarness,
+						  amountToFillHarness, vHarness, rHarness, sHarness);
 	}
 
 	function getDigestHarness() public view returns (bytes32) {
@@ -75,15 +78,14 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	*/
 	}
 
-	//todo - override all functions and use super. ... 
-
+	// TODO - override all functions and use super ... 
 
 	fallback() external {
 	    bytes memory data;
         data = abi.decode(msg.data[4:], (bytes));
     }
 
-	// override batch
-	function batch(bytes[] calldata calls, bool revertOnFail) external override payable returns (bool[] memory successes, bytes[] memory results) {
-	}
+	// overwriting batch for simplification
+	function batch(bytes[] calldata calls, bool revertOnFail) external override
+		payable returns (bool[] memory successes, bytes[] memory results) { }
 }

@@ -1,6 +1,7 @@
 /*
-    This is a specification file for smart contract verification with the Certora prover.
-    For more information, visit: https://www.certora.com/
+    This is a specification file for smart contract verification
+    with the Certora prover. For more information,
+	visit: https://www.certora.com/
 
     This file is run with scripts/...
 	Assumptions:
@@ -9,26 +10,18 @@
 using SimpleOrderReceiver as receiver
 using SimpleBentoBox as bentoBox
 
-
 ////////////////////////////////////////////////////////////////////////////
-//                      Methods                                           //
+//                                Methods                                 //
 ////////////////////////////////////////////////////////////////////////////
-
-
 /*
     Declaration of methods that are used in the rules.
     envfree indicate that the method is not dependent on the environment (msg.value, msg.sender).
     Methods that are not declared here are assumed to be dependent on env.
 */
 
-
 methods {	
-
 	// global variables used to construct an order structure
 	makerHarness() returns (address) envfree
-	receiverHarness() returns (address) envfree
-	tokenInHarness() returns (address) envfree
-	tokenOutHarness() returns (address) envfree
 	amountInHarness() returns (uint256) envfree
 	amountOutHarness() returns (uint256) envfree
     recipientHarness() returns (address) envfree 
@@ -41,6 +34,10 @@ methods {
 	vHarness() returns (uint8) envfree
     rHarness() returns (bytes32) envfree
     sHarness() returns (bytes32) envfree
+
+	receiverHarness() returns (address) envfree
+	tokenInHarness() returns (address) envfree
+	tokenOutHarness() returns (address) envfree
 	
 	// wrappers to fill order functions
 	fillOrderHarness(bytes)
@@ -49,11 +46,15 @@ methods {
 	batchFillOrderOpenHarness(bytes)
 
 	// simplifications to code
-	abstract_keccak256(address maker, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, address oracleAddress, uint256 oracleData) returns(bytes32) envfree => 
-	
-		digestGhost(maker, tokenIn, tokenOut, amountIn, amountOut, recipient, startTime, endTime, stopPrice, oracleAddress, oracleData)
+	abstract_keccak256(address maker, address tokenIn, address tokenOut,
+					   uint256 amountIn, uint256 amountOut, address recipient,
+					   uint256 startTime, uint256 endTime, uint256 stopPrice, 
+					   address oracleAddress, uint256 oracleData)
+		returns(bytes32) envfree => digestGhost(maker, tokenIn, tokenOut,
+											    amountIn, amountOut, recipient, 
+												startTime, endTime, stopPrice, 
+												oracleAddress, oracleData)
 
-	
 	// getters 	
 	bentoBalanceOf(address, address) returns (uint256) envfree
 	cancelledOrder(address sender, bytes32 hash) returns (bool) envfree
@@ -65,14 +66,15 @@ methods {
 	getDigestHarness() envfree
 
 	// receiver
-	onLimitOrder(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountMinOut, bytes data) => DISPATCHER(true)
+	onLimitOrder(address tokenIn, address tokenOut, uint256 amountIn,
+			     uint256 amountMinOut, bytes data) => DISPATCHER(true)
 
 	// bentobox	
-	toAmount(address token, uint256 share, bool roundUp) returns (uint256) envfree => DISPATCHER(true)
+	toAmount(address token, uint256 share, bool roundUp)
+		returns (uint256) envfree => DISPATCHER(true)
 
 	// oracle
 	get(uint) returns (bool, uint256) => NONDET
-
 
 	// TODO - check if redundant 
 	setStopPrice(uint256) envfree
@@ -88,37 +90,30 @@ methods {
 	whiteListReceiver(address)
 }
 
-
 ////////////////////////////////////////////////////////////////////////////
-//                       Ghost                                            //
+//                                 Ghost                                  //
 ////////////////////////////////////////////////////////////////////////////
-
 ghost digestGhost(address, address, address, uint256, uint256, address, uint256, 
 				uint256, uint256, address, uint256) returns bytes32;
 
 
 ////////////////////////////////////////////////////////////////////////////
-//                       Invariants                                       //
+//                               Invariants                               //
 ////////////////////////////////////////////////////////////////////////////
 
 
 
 ////////////////////////////////////////////////////////////////////////////
-//                       Rules                                            //
+//                                 Rules                                  //
 ////////////////////////////////////////////////////////////////////////////
-
-
-
-/*** 	
+/*	
 	Rule: Integrity of Canceling the flag is on.  
  	Description: Performing a cancelOrder sets the cancelledOrder to true
 	Formula: 
 			{ digest = _getDigest(order{maker=u}, tIn, tOut) }
 					cancelOrder(digest)
-			{ cancelledOrder(u, digest) }	
-
-	
-***/
+			{ cancelledOrder(u, digest) }
+*/
 rule cancelTurnsOnFlag() { 
 	env e;
 	require makerHarness() == e.msg.sender;
@@ -127,16 +122,14 @@ rule cancelTurnsOnFlag() {
 	assert cancelledOrder(e.msg.sender, digest);
 }
 
-/***
+/*
  	Rule: Always cancelled.  
  	Description: if cancel flag is on, it will always remain on.
 	Formula: 
 			{ cancelledOrder(u, digest) }
 					op
-			{ cancelledOrder(u, digest) }	
-
-	
-***/
+			{ cancelledOrder(u, digest) }
+*/
 rule onceCancelledAlways() {
 	bytes32 digest;
 	address sender;
@@ -150,18 +143,15 @@ rule onceCancelledAlways() {
 	assert cancelledOrder(sender, digest);
 }
 
-
-/*** 	
+/*	
 	Rule: A cancelled order can not be filled.  
  	Description: any of the fill order function reverts when the order is cancelled 
 	Formula: 
 			{ cancelledOrder(u, digest) }
 					r = op
 			{ false }
-			where op is any of the fillOrder operation returns false if failed	
-
-	
-***/
+			where op is any of the fillOrder operation returns false if failed
+*/
 rule cancelledCanNotBeFilled(method f) 
 	filtered { f -> 
 		f.selector == fillOrderHarness(bytes).selector || 
@@ -180,13 +170,11 @@ rule cancelledCanNotBeFilled(method f)
 		assert lastReverted;
 	}
 
-
 /* 	Rule: Fill order is up to the amountIn
  	Description: The total filled amount of an order is never more than the amountIn
 	Formula: 
 
-			orderStatus(digest(order)) <= order.amountIn
-			
+			orderStatus(digest(order)) <= order.amountIn		
 */
 rule orderStatusLeAmountToFill(method f) 
 	filtered { f -> 
@@ -213,10 +201,7 @@ rule orderStatusLeAmountToFill(method f)
 
 	}
 
-
-
 /****************************************************************************************************/
-
 definition outOnly() returns uint = 1;
 definition inOnly() returns uint = 2;
 definition sameSame() returns uint = 3;
@@ -313,13 +298,9 @@ rule fillOrderSameSame(method f) filtered { f ->
 	fillOrderGeneralFunction(f, sameSame());
 	assert(true);
 }
-
 */
+
 /****************************************************************************************************/
-
-
-
-
 // Passes
 rule fillOrderAmountToFillIn(method f) filtered { f -> 
 	f.selector == fillOrderHarness(bytes).selector /* || 
@@ -331,7 +312,6 @@ rule fillOrderAmountToFillIn(method f) filtered { f ->
 	assert(true);
 }
 
-
 rule fillOrderAmountToFillSameSame(method f) filtered { f -> 
 	f.selector == fillOrderHarness(bytes).selector /* || 
 	f.selector == fillOrderOpenHarness(bytes).selector || 
@@ -342,10 +322,7 @@ rule fillOrderAmountToFillSameSame(method f) filtered { f ->
 	assert(true);
 }
 
-
 /****************************************************************************************************/
-
-
 // Checks fees are collected correctly.
 // this one passes but is pretty heavy.
 rule CheckFees(method f) filtered { f -> 
@@ -378,12 +355,10 @@ rule CheckFees(method f) filtered { f ->
 	assert feesCollected_ >= _feesCollected + expectedFee;
 }
 
-
 // Checks that the contract indeed holds feesCollected tokens.
 // invariant feesInvariant(address token) 
 // 	bentoBalanceOf(token, currentContract) >= feesCollected(token)
 // totally times out..
-
 
 // Should actually run this on all methods except the unharnessed versions of the fillOrder methods.
 rule CheckFeesInvariant(method f)  filtered { f -> 
@@ -403,14 +378,11 @@ rule CheckFeesInvariant(method f)  filtered { f ->
 	assert bentoBalanceOf(token, currentContract) >= feesCollected(token);
 }
 
-
-
-
 /****************************************************************************************************/
 
-
 // Doesn't work, and i don't get counter example.
-/*rule fillOrderLiveness()  {
+/*
+rule fillOrderLiveness()  {
 	address recipient = 1;
 	address maker;
 	address tokenIn;
@@ -445,7 +417,6 @@ rule CheckFeesInvariant(method f)  filtered { f ->
     fillOrderHarness@withrevert(e, args);
     assert !lastReverted;
 }
-
 */
 
 /****************************************************************************************************/
@@ -475,10 +446,7 @@ rule checkOrderStatus() {
 
 	assert lastReverted;
 }
-
-
 */
-
 
 /*
 // Should fail! indeed does.
@@ -501,12 +469,9 @@ rule digestSanity2() {
 	
 	assert digest1 == digest2;
 }
-
 */
 
-
 /****************************************************************************************************/
-
 // Check Bug
 // A livness rule should have been able to find this.
 rule CheckBug() {
@@ -527,20 +492,14 @@ rule CheckBug() {
 	fillOrderHarness(e, args);
 
 	assert(false);
-	
-} 
-
+}
 
 ////////////////////////////////////////////////////////////////////////////
-//                       Helper Functions                                 //
+//                            Helper Functions                            //
 ////////////////////////////////////////////////////////////////////////////
-
-
 // Basically:
 // recipient != bentoBox, because then onLoan can take coins from receipient instead of giving to it, because bentoBox can always be taken from.
 // Also there are mastercontract stuff in the bentobox transfer which allow transfers - this still needs to be understood better.
-
-
 function prepare(address recipient, address maker, address tokenIn, address tokenOut, uint256 amountIn, uint amountToFill, uint256 amountOut) {
 	require receiverHarness() == receiver;
 
@@ -553,11 +512,8 @@ function prepare(address recipient, address maker, address tokenIn, address toke
 	require amountOutHarness() == amountOut;
 }
 
-
 // I would also do a require in the code after onLimitOrder to see it doesn't take too much.
 // especially for melicious ones.
-
-
 
 // two orders stuff in batch..
 
