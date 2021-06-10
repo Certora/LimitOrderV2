@@ -60,12 +60,12 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	}
 
 	function batchFillOrderHarness(bytes calldata data) public {
-		/*
+	/*
 		OrderArgs[] memory orders = new OrderArgs[](1); 
 		orders[0] = createOrder();
 
 		batchFillOrder(orders, tokenInHarness, tokenOutHarness, receiverHarness, data);
-		*/
+	*/
 	 }
 
 	function batchFillOrderOpenHarness(bytes calldata data) public { 
@@ -78,6 +78,16 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	}
 
 	// TODO - override all functions and use super ... 
+	// function fillOrder(
+    //         OrderArgs memory order,
+    //         IERC20 tokenIn,
+    //         IERC20 tokenOut, 
+    //         ILimitOrderReceiver receiver, 
+    //         bytes calldata data) 
+    // public override { 
+	// 	require order.maker == makerHarness;
+	// 	super.fillOrder()
+	// }
 
 	fallback() external {
 	    bytes memory data;
