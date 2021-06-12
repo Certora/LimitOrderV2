@@ -32,8 +32,6 @@ contract SimpleOrderReceiver is ILimitOrderReceiver {
 
 
     function onLimitOrder (IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountMinOut, bytes calldata data) override external {
-        
-
         //----------------------------------------------------------------
         // To model a malicious one
 
@@ -52,8 +50,6 @@ contract SimpleOrderReceiver is ILimitOrderReceiver {
         // takes from the maker.. So I don't really let it run free.
     
         // Maybe also give opportunity for revert, and call back..
-
-
 
         // -----------------------------------------------------------------------
         // To abstract sushiSwapLimitOrderReceiver.

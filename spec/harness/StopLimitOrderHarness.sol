@@ -66,7 +66,7 @@ contract StopLimitOrderHarness is StopLimitOrder {
 
 		batchFillOrder(orders, tokenInHarness, tokenOutHarness, receiverHarness, data);
 	*/
-	 }
+	}
 
 	function batchFillOrderOpenHarness(bytes calldata data) public { 
 	/*
@@ -98,14 +98,12 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	function batch(bytes[] calldata calls, bool revertOnFail) external override
 		payable returns (bool[] memory successes, bytes[] memory results) { }
 
-
-
 	// simplify computation
 	mapping(uint256 => mapping(uint256 => mapping(uint256 => uint256))) public amountToBeReturned;
 
-	function computAmoutOut(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled ) external view returns (uint256) {
+	function computeAmountOut(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled) external view returns (uint256) {
 		uint256 res =  amountToBeReturned[amountIn][amountOut][amountToBeFilled];
-		require(res <= amountOut );
+		require(res <= amountOut);
 		require(res < amountOut || amountIn == amountToBeFilled);
 	}
 }
