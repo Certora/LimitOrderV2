@@ -5,17 +5,17 @@ import "../../contracts/StopLimitOrder.sol";
 
 contract StopLimitOrderHarness is StopLimitOrder {
 	// fields of the struct OrderArgs
-	address public makerHarness; 
+	address public makerHarness;
 	uint256 public amountInHarness;
-	uint256 public amountOutHarness; 
-    address public recipientHarness; 
+	uint256 public amountOutHarness;
+    address public recipientHarness;
     uint256 public startTimeHarness;
     uint256 public endTimeHarness;
     uint256 public stopPriceHarness;
     IOracle public oracleAddressHarness;
     uint public oracleDataHarness;
     uint256 public amountToFillHarness;
-	uint8 public vHarness; 
+	uint8 public vHarness;
     bytes32 public rHarness;
     bytes32 public sHarness;
 
@@ -53,37 +53,6 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	////////////////////////////////////////////////////////////
 	//                    overrided methods                   //
 	////////////////////////////////////////////////////////////
-	// OLD WAY, IF SLOW PERFORMANCE, CAN USE THIS, OTHERWISE, DELETE THESE COMMENTS
-	// function getDigestHarness() public view returns (bytes32) {
-	// 	return _getDigest(createOrder(), tokenInHarness, tokenOutHarness);
-	// }
-
-	// function fillOrderHarness(bytes calldata data) public {
-	// 	fillOrder(createOrder(), tokenInHarness, tokenOutHarness, receiverHarness, data);
-	// }
-
-	// function fillOrderOpenHarness(bytes calldata data) public {
-	// 	fillOrderOpen(createOrder(), tokenInHarness, tokenOutHarness, receiverHarness, data);
-	// }
-
-	// function batchFillOrderHarness(bytes calldata data) public {
-	// /*
-	// 	OrderArgs[] memory orders = new OrderArgs[](1); 
-	// 	orders[0] = createOrder();
-
-	// 	batchFillOrder(orders, tokenInHarness, tokenOutHarness, receiverHarness, data);
-	// */
-	// }
-
-	// function batchFillOrderOpenHarness(bytes calldata data) public { 
-	// /*
-	// 	OrderArgs[] memory orders = new OrderArgs[](1); 
-	// 	orders[0] = createOrder();
-
-	// 	batchFillOrderOpen(orders, tokenInHarness, tokenOutHarness, receiverHarness, data);
-	// */
-	// }
-
 	function _getDigest(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut)
 						internal view override returns (bytes32 digest) {
 		compareOrder(order);
@@ -153,7 +122,7 @@ contract StopLimitOrderHarness is StopLimitOrder {
 
 	function computeAmountOut(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled)
 							  external view returns (uint256) {
-		uint256 res =  amountToBeReturned[amountIn][amountOut][amountToBeFilled];
+		uint256 res = amountToBeReturned[amountIn][amountOut][amountToBeFilled];
 		require(res <= amountOut);
 		require(res < amountOut || amountIn == amountToBeFilled);
 	}
@@ -165,14 +134,6 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	////////////////////////////////////////////////////////////
 	//                    helper functions                    //
 	////////////////////////////////////////////////////////////
-	// Not used with the new overriding technique
-	function createOrder() private view returns (OrderArgs memory order) {
-		order = OrderArgs(makerHarness, amountInHarness, amountOutHarness,
-						  recipientHarness, startTimeHarness, endTimeHarness, 
-						  stopPriceHarness, oracleAddressHarness, oracleDataHarness,
-						  amountToFillHarness, vHarness, rHarness, sHarness);
-	}
-
 	function compareOrder(OrderArgs memory order) private view {
 		require(order.maker == makerHarness); 
 		require(order.amountIn == amountInHarness);

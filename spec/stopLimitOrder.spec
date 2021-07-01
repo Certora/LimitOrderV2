@@ -39,13 +39,6 @@ methods {
 	tokenInHarness() returns (address) envfree
 	tokenOutHarness() returns (address) envfree
 
-	// OLD WAY, IF SLOW PERFORMANCE, CAN USE THIS, OTHERWISE, DELETE THESE COMMENTS
-	// wrappers to fill order functions
-	// fillOrderHarness(bytes)
-	// fillOrderOpenHarness(bytes)
-	// batchFillOrderHarness(bytes)
-	// batchFillOrderOpenHarness(bytes)
-
 	// signatures
 	fillOrder((address, uint256, uint256, address, uint256, uint256, uint256, address,
 	  		   uint256, uint256, uint8, bytes32, bytes32), address, address, address, bytes)
@@ -85,7 +78,6 @@ methods {
 	externalOrderFee() returns (uint256) envfree
 	FEE_DIVISOR() returns (uint256) envfree
 	orderStatus(bytes32) returns (uint256) envfree
-	// getDigestHarness() envfree // OLD WAY, IF SLOW PERFORMANCE, CAN USE THIS, OTHERWISE, DELETE THESE COMMENTS
 
 	// receiver
 	onLimitOrder(address tokenIn, address tokenOut, uint256 amountIn,
@@ -97,15 +89,6 @@ methods {
 
 	// oracle
 	get(uint) returns (bool, uint256) => NONDET
-
-	// TODO - check if redundant 
-	token1() returns (address) envfree => DISPATCHER(true)
-	to1() returns (address) envfree => DISPATCHER(true)
-	amount1() returns (uint256) envfree => DISPATCHER(true)
-	
-	token2() returns (address) envfree => DISPATCHER(true)
-	to2() returns (address) envfree => DISPATCHER(true)
-	amount2() returns (uint256) envfree => DISPATCHER(true)
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -228,7 +211,7 @@ rule orderStatusLeAmountToFill(method f) {
 		uint256 amountIn;
 		uint256 amountToFill;
 		uint256 amountOut;
-		prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+		prepare(maker, amountIn, amountOut, recipient, amountToFill, tokenIn, tokenOut);
 
 		calldataarg digestArgs;
 		bytes32 digest = getDigest(e, digestArgs);
@@ -259,13 +242,13 @@ rule CheckFees(method f) filtered { f ->
 	address tokenIn;
 	address tokenOut;
 	uint256 amountIn;
-	uint256 amountToFill = amountIn;	
+	uint256 amountToFill = amountIn;
 	uint256 expectedFee;
 	uint256 amountOut = 4 * expectedFee;
 
 	require (maker == 2) || (maker == 1);
 	require expectedFee < 10000000;
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+	prepare(maker, amountIn, amountOut, recipient, amountToFill, tokenIn, tokenOut);
 
 	require externalOrderFee() == FEE_DIVISOR() / 4;
 
@@ -291,7 +274,7 @@ rule checkOrderStatus() {
 	uint256 amountOut;
 	uint256 amountToFill;
 	uint256 amountIn;
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+	prepare(maker, amountIn, amountOut, recipient, amountToFill, tokenIn, tokenOut);
 	require maker == 1 || maker == 2;
 	
 	bytes32 digest = getDigestHarness();
@@ -315,13 +298,13 @@ rule checkOrderStatus() {
 // Basically:
 // recipient != bentoBox, because then onLoan can take coins from receipient instead of giving to it, because bentoBox can always be taken from.
 // Also there are mastercontract stuff in the bentobox transfer which allow transfers - this still needs to be understood better.
-function prepare(address recipient, address maker, address tokenIn,
-			     address tokenOut, uint256 amountIn, uint amountToFill, uint256 amountOut) {
-	require recipientHarness() == recipient;	
+function prepare(address maker, uint256 amountIn, uint256 amountOut,
+				 address recipient, uint256 amountToFill, address tokenIn, address tokenOut) {
 	require makerHarness() == maker;
 	require amountInHarness() == amountIn;
-	require amountToFillHarness() == amountToFill;
 	require amountOutHarness() == amountOut;
+	require recipientHarness() == recipient;
+	require amountToFillHarness() == amountToFill;
 
 	require receiverHarness() == receiver;
 	require tokenInHarness() == tokenIn;
@@ -349,7 +332,7 @@ rule fillOrderGeneralFunction(method f, uint type) filtered { f ->
 	uint256 amountIn;
 	uint256 amountToFill;
 	uint256 amountOut;
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+	prepare(maker, amountIn, amountOut, recipient, amountToFill, tokenIn, tokenOut);
 	require tokenIn != tokenOut;
 	require maker != recipient;
 	require maker != currentContract;
@@ -404,7 +387,7 @@ rule fillOrderLiveness()  {
 
 	uint256 amountIn;
 	uint256 amountOut;
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountIn, amountOut);
+	prepare(maker, amountIn, amountOut, recipient, amountToFill, tokenIn, tokenOut);
 
 	require receiver.token1() == tokenOut;
 	// require token2() == tokenOut;
@@ -443,7 +426,7 @@ rule CheckBug() {
 	uint256 amountIn = 100;
 	uint256 amountToFill = amountIn;	
 	uint256 amountOut = 101;
-	prepare(recipient, maker, tokenIn, tokenOut, amountIn, amountToFill, amountOut);
+	prepare(maker, amountIn, amountOut, recipient, amountToFill, tokenIn, tokenOut);
 	require feesCollected(tokenOut) == 0;
 	require bentoBalanceOf(tokenOut, currentContract) == 0;
 
