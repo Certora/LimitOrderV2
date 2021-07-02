@@ -119,7 +119,7 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	function batch(bytes[] calldata calls, bool revertOnFail) external override
 		payable returns (bool[] memory successes, bytes[] memory results) { }
 
-
+	// simplifies the division in _preFillOrder
 	function computeAmountOut(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled)
 							  external view returns (uint256) {
 		uint256 res = amountToBeReturned[amountIn][amountOut][amountToBeFilled];

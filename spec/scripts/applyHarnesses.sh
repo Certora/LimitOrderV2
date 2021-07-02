@@ -10,7 +10,7 @@ perl -0777 -i -pe 's/external view returns \(uint256 /external virtual view retu
 perl -0777 -i -pe 's/uint256\[\] calldata amounts,\s+bytes calldata data\s+\) public/uint256\[\] calldata amounts,bytes calldata data\) public virtual/g' node_modules/@sushiswap/bentobox-sdk/contracts/BentoBoxV1.sol 
 
 # remove hardhat console
-perl -0777 -i -pe 's/import \"hardhat/\/\/import  \"hardhat/g' contracts/StopLimitOrder.sol
+perl -0777 -i -pe 's/import \"hardhat/\/\/ import \"hardhat/g' contracts/StopLimitOrder.sol
 
 # private to internal
 perl -0777 -i -pe 's/private/internal/g' contracts/StopLimitOrder.sol
@@ -25,13 +25,13 @@ perl -0777 -i -pe 's/function get\(bytes calldata data\)/function get\(uint data
 
 # add ghost
 perl -0777 -i -pe 's/contract StopLimitOrder/interface A {
-        function abstract_keccak256\(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress, uint oracleData\) external\/*trick*\/ pure returns \(bytes32\);
-        function ec_recover\(bytes32 digest, uint8 v, bytes32 r, bytes32 s\) external view returns \(address\); 
-        function computeAmountOut\(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled\) external view returns \(uint256\); 
-    }
-    contract  StopLimitOrder/g' contracts/StopLimitOrder.sol
-perl -0777 -i -pe 's/struct OrderArgs/A public a;
-struct  OrderArgs/g' contracts/StopLimitOrder.sol
+    function abstract_keccak256\(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress, uint oracleData\) external\/*trick*\/ pure returns \(bytes32\);
+    function ec_recover\(bytes32 digest, uint8 v, bytes32 r, bytes32 s\) external view returns \(address\); 
+    function computeAmountOut\(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled\) external view returns \(uint256\); 
+}\n
+contract  StopLimitOrder/g' contracts/StopLimitOrder.sol
+perl -0777 -i -pe 's/struct OrderArgs/A public a;\n
+    struct OrderArgs/g' contracts/StopLimitOrder.sol
 
 # simplify digest
 perl -0777 -i -pe 's/function _getDigest\(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut\) internal/function _getDigest\(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut\) virtual internal view returns \(bytes32\) {
