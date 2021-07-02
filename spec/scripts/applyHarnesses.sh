@@ -25,7 +25,7 @@ perl -0777 -i -pe 's/function get\(bytes calldata data\)/function get\(uint data
 
 # add ghost
 perl -0777 -i -pe 's/contract StopLimitOrder/interface A {
-    function abstract_keccak256\(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress, uint oracleData\) external\/*trick*\/ pure returns \(bytes32\);
+    function abstract_keccak256\(address maker, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut, address recipient, uint256 startTime, uint256 endTime, uint256 stopPrice, IOracle oracleAddress, uint oracleData\) external pure returns \(bytes32\);
     function ec_recover\(bytes32 digest, uint8 v, bytes32 r, bytes32 s\) external view returns \(address\); 
     function computeAmountOut\(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled\) external view returns \(uint256\); 
 }\n

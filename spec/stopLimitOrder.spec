@@ -69,6 +69,10 @@ methods {
 											    amountIn, amountOut, recipient, 
 												startTime, endTime, stopPrice, 
 												oracleAddress, oracleData)
+	computeAmountOut(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled)
+							returns (uint256) => DISPATCHER(true)
+	ec_recover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) 
+						returns (address) => DISPATCHER(true)
 
 	// getters 	
 	bentoBalanceOf(address, address) returns (uint256) envfree
