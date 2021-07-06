@@ -151,13 +151,14 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
         amountToBeFilled = newFilledAmount <= order.amountIn ? 
                                 order.amountToFill :
                                 order.amountIn.sub(currentFilledAmount);
+        newFilledAmount = currentFilledAmount + amountToBeFilled;
         }
         // Amount is either the right amount or short changed
         amountToBeReturned = order.amountOut.mul(amountToBeFilled) / order.amountIn;
         // Effects
         orderStatus[digest] = newFilledAmount;
 
-        bentoBox.transfer(tokenIn, order.maker, address(receiver), bentoBox.toShare(tokenIn, amountToBeFilled, false));
+        bentoBox.transfer(tokenIn, order.maker, address(receiver), bentoBox.toShare(tokenIn, amountToBeFilled, true));
 
         emit LogFillOrder(order.maker, digest, receiver, amountToBeFilled);
     }
@@ -206,7 +207,7 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
 
         uint256 _feesCollected = _fillOrderInternal(tokenIn, tokenOut, receiver, data, amountToBeFilled, amountToBeReturned, fee);
 
-        feesCollected[tokenOut] = _feesCollected.add(bentoBox.toShare(tokenOut, fee, true));
+        feesCollected[tokenOut] = _feesCollected.add(bentoBox.toShare(tokenOut, fee, false));
 
         bentoBox.transfer(tokenOut, address(this), order.recipient, bentoBox.toShare(tokenOut, amountToBeReturned, false));
     }
@@ -264,7 +265,7 @@ contract StopLimitOrder is BoringOwnable, BoringBatchable {
         {
             
         uint256 _feesCollected = _fillOrderInternal(tokenIn, tokenOut, receiver, data, totalAmountToBeFilled, totalAmountToBeReturned, totalFee);
-        feesCollected[tokenOut] = _feesCollected.add(bentoBox.toShare(tokenOut, totalFee, true));
+        feesCollected[tokenOut] = _feesCollected.add(bentoBox.toShare(tokenOut, totalFee, false));
 
         }
 
