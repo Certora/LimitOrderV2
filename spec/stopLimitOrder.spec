@@ -9,6 +9,8 @@
 
 using SimpleOrderReceiver as receiver
 using SimpleBentoBox as bentoBox
+using DummyERC20A as tokenA
+using DummyERC20B as tokenB
 
 ////////////////////////////////////////////////////////////////////////////
 //                                Methods                                 //
@@ -87,13 +89,26 @@ methods {
 	onLimitOrder(address tokenIn, address tokenOut, uint256 amountIn,
 			     uint256 amountMinOut, bytes data) => DISPATCHER(true)
 
-	// bentobox	
+	// bentobox
 	toAmount(address token, uint256 share, bool roundUp)
 		returns (uint256) envfree => DISPATCHER(true)
 
 	// oracle
 	get(uint) returns (bool, uint256) => NONDET
+
+	// ERC20
+	tokenA.balanceOf(address) returns (uint256) => DISPATCHER(true)
+	tokenB.balanceOf(address) returns (uint256) => DISPATCHER(true)
+	permit(address from, address to, uint amount, uint deadline, uint8 v, bytes32 r, bytes32 s) => NONDET
 }
+
+// rule sanity(method f) {
+// 	calldataarg args;
+// 	env e;
+// 	f(e, args);
+
+// 	assert(false);
+// }
 
 ////////////////////////////////////////////////////////////////////////////
 //                                 Ghost                                  //
@@ -106,28 +121,27 @@ ghost digestGhost(address, address, address, uint256, uint256, address, uint256,
 ////////////////////////////////////////////////////////////////////////////
 // Both are same, we need to check which one works
 // Checks that the contract indeed holds feesCollected tokens.
-// invariant feesInvariant(address token) 
-// 	bentoBalanceOf(token, currentContract) >= feesCollected(token)
-// totally times out..
+invariant feesInvariant(address token)
+	bentoBalanceOf(token, currentContract) >= feesCollected(token)
 
 // Should actually run this on all methods except the unharnessed versions of the fillOrder methods.
-rule CheckFeesInvariant(method f) filtered { f -> 
-	f.selector == fillOrderOpen((address, uint256, uint256, address, uint256, uint256, uint256,
-								     address, uint256, uint256, uint8, bytes32, bytes32), address, 
-									 address, address, bytes).selector ||
-	f.selector == swipeFees(address).selector } {
-	// otherwise the order takes away the fees to the receiver.
-	require makerHarness() != currentContract;
+// rule CheckFeesInvariant(method f) filtered { f -> 
+// 	f.selector == fillOrderOpen((address, uint256, uint256, address, uint256, uint256, uint256,
+// 								     address, uint256, uint256, uint8, bytes32, bytes32), address, 
+// 									 address, address, bytes).selector ||
+// 	f.selector == swipeFees(address).selector } {
+// 	// otherwise the order takes away the fees to the receiver.
+// 	require makerHarness() != currentContract;
 
-	address token; 
-	require bentoBalanceOf(token, currentContract) >= feesCollected(token);
+// 	address token; 
+// 	require bentoBalanceOf(token, currentContract) >= feesCollected(token);
 
-	calldataarg args;
-	env e;
-	f(e, args);
+// 	calldataarg args;
+// 	env e;
+// 	f(e, args);
 
-	assert bentoBalanceOf(token, currentContract) >= feesCollected(token);
-}
+// 	assert bentoBalanceOf(token, currentContract) >= feesCollected(token);
+// }
 
 ////////////////////////////////////////////////////////////////////////////
 //                                 Rules                                  //
@@ -143,6 +157,8 @@ rule CheckFeesInvariant(method f) filtered { f ->
 rule cancelTurnsOnFlag() {
 	env e;
 
+	// making sure that the msg.sender is the maker of the order, since the
+	// maker of the contract can only cancel the order
 	require makerHarness() == e.msg.sender;
 
 	calldataarg digestArgs;
@@ -183,21 +199,21 @@ rule onceCancelledAlways() {
 			{ false }
 			where op is any of the fillOrder operation returns false if failed
 */
-rule cancelledCannotBeFilled(method f) {
-		env e;
-		address maker;
+rule cancelledCannotBeFilled(method f) { // TODO: filter 4 fillOrder functions
+	env e;
+	address maker;
 
-		calldataarg digestArgs;
-		bytes32 digest = getDigest(e, digestArgs);
+	calldataarg digestArgs;
+	bytes32 digest = getDigest(e, digestArgs);
 
-		require makerHarness() == maker;
-		require cancelledOrder(maker, digest);
+	require makerHarness() == maker;
+	require cancelledOrder(maker, digest);
 
-		calldataarg args;
-		f(e, args);
+	calldataarg args;
+	f(e, args);
 
-		assert lastReverted;
-	}
+	assert lastReverted;
+}
 
 /* 	
 	Rule: Fill order is up to the amountIn
@@ -206,31 +222,30 @@ rule cancelledCannotBeFilled(method f) {
 			orderStatus(digest(order)) <= order.amountIn		
 */
 rule orderStatusLeAmountToFill(method f) {
-		env e;
+	env e;
 
-		address maker;
-		address recipient; 
-		address tokenIn;
-		address tokenOut;
-		uint256 amountIn;
-		uint256 amountToFill;
-		uint256 amountOut;
-		prepare(maker, amountIn, amountOut, recipient, amountToFill, tokenIn, tokenOut);
+	address maker;
+	address recipient; 
+	address tokenIn;
+	address tokenOut;
+	uint256 amountIn;
+	uint256 amountToFill;
+	uint256 amountOut;
 
-		calldataarg digestArgs;
-		bytes32 digest = getDigest(e, digestArgs);
+	calldataarg digestArgs;
+	bytes32 digest = getDigest(e, digestArgs);
 
-		uint256 orderStatusBefore = orderStatus(digest);
+	uint256 orderStatusBefore = orderStatus(digest);
 
-		require orderStatusBefore <= amountInHarness();
+	require orderStatusBefore <= amountInHarness();
 
-		calldataarg args;
-		f(e, args);
+	calldataarg args;
+	f(e, args);
 
-		uint256 orderStatusAfter = orderStatus(digest);
-		
-		assert orderStatusAfter <= amountInHarness();
-	}
+	uint256 orderStatusAfter = orderStatus(digest);
+	
+	assert orderStatusAfter <= amountInHarness();
+}
 
 // Checks fees are collected correctly.
 // this one passes but is pretty heavy.
@@ -298,6 +313,7 @@ rule checkOrderStatus() {
 ////////////////////////////////////////////////////////////////////////////
 //                            Helper Functions                            //
 ////////////////////////////////////////////////////////////////////////////
+// ONLY USE IF YOU ARE CONTRAINING LOCAL VARIABLES, OTHER OPTION IS TO CONSTRAINT THE HARNESS VARIABLES AND THEN WE DONT NEED THIS
 // Change the order of params
 // Basically:
 // recipient != bentoBox, because then onLoan can take coins from receipient instead of giving to it, because bentoBox can always be taken from.

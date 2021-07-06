@@ -3,35 +3,6 @@ pragma experimental ABIEncoderV2;
 
 import "../../contracts/StopLimitOrder.sol";
 
-contract Simplifications is A {
-	// for simplifications
-	mapping(uint256 => mapping(uint256 => mapping(uint256 => uint256))) public amountToBeReturned;
-	address public ecrecover_return;
-
-	function abstract_keccak256(address maker, IERC20 tokenIn, IERC20 tokenOut,
-								uint256 amountIn, uint256 amountOut, address recipient,
-								uint256 startTime, uint256 endTime, uint256 stopPrice,
-								IOracle oracleAddress, uint oracleData)
-								external override pure returns (bytes32) {
-		// abstract_keccak256 has a ghost summary on it, so the return
-		// value can be ignored.
-		return "ignored";
-	}
-	
-	// simplifies the division in _preFillOrder
-	function computeAmountOut(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled)
-							  external override view returns (uint256) {
-		uint256 res = amountToBeReturned[amountIn][amountOut][amountToBeFilled];
-		require(res <= amountOut);
-		require(res < amountOut || amountIn == amountToBeFilled);
-	}
-
-	function ec_recover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) 
-						external override view returns (address) {
-		return ecrecover_return;
-	}
-}
-
 contract StopLimitOrderHarness is StopLimitOrder {
 	// fields of the struct OrderArgs
 	address public makerHarness;
@@ -57,9 +28,7 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	//                 constructors and inits                 //
 	////////////////////////////////////////////////////////////
 	constructor(uint256 _externalOrderFee, IBentoBoxV1 _bentoBox)
-		StopLimitOrder(_externalOrderFee, _bentoBox) public {
-			a = new Simplifications();
-		}
+		StopLimitOrder(_externalOrderFee, _bentoBox) public { }
 
 	////////////////////////////////////////////////////////////
 	//                   getters and setters                  //
