@@ -1,7 +1,8 @@
 # SafeTransfer simplification
-# sed -i 's/safeT/t/g' contracts/BentoBoxPlus.sol
-# sed -i 's/safeT/t/g' contracts/LendingPair.sol
-# perl -0777 -i -pe 's/safeT/t/g' contracts/StopLimitOrder.sol
+perl -0777 -i -pe 's/safeT/t/g' contracts/StopLimitOrder.sol
+
+# Add transfer function declaration (uncomment when running for the first time)
+# perl -0777 -i -pe 's/\}/    function transfer\(address to, uint256 amount\) external;\n    function transferFrom\(address from, address to, uint256 amount\) external;\n\}/g' node_modules/@boringcrypto/boring-solidity/contracts/interfaces/IERC20.sol
 
 # virtualize functions for BentoBoxV1
 perl -0777 -i -pe 's/public payable \{/public virtual payable \{/g' node_modules/@sushiswap/bentobox-sdk/contracts/BentoBoxV1.sol

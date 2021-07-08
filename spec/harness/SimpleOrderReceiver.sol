@@ -29,7 +29,7 @@ contract SimpleOrderReceiver is ILimitOrderReceiver {
     uint256 public amount2;
 
     address public somewhere;
-
+    uint256 public value;
 
     function onLimitOrder (IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountMinOut, bytes calldata data) override external {
         //----------------------------------------------------------------
@@ -60,7 +60,7 @@ contract SimpleOrderReceiver is ILimitOrderReceiver {
         // bentoBox.deposit(tokenOut, address(bentoBox), to, amountOut.sub(amountMinOut), 0);
         // so we do:
         bentoBox.transfer(tokenIn, address(this), somewhere, bentoBox.toShare(tokenOut, amountIn, true));
-        bentoBox.transfer(tokenOut, address(bentoBox), msg.sender, bentoBox.toShare(tokenOut, amountMinOut, false));
+        bentoBox.transfer(tokenOut, address(bentoBox), somewhere, value);
         // The difference is because transfer works with shares, while deposit and withdraw work with tokens, 
         // and they round (withdraw up and deposit down) if they get a token amount parameter.
         // "somewhere" is just so we throw away the coins. In effect i think it only lets us check that
