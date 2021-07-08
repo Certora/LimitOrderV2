@@ -28,6 +28,7 @@ perl -0777 -i -pe 's/external /public /g' contracts/StopLimitOrder.sol
 perl -0777 -i -pe 's/bytes oracleData;/uint oracleData;/g' contracts/StopLimitOrder.sol
 perl -0777 -i -pe 's/keccak256\(order.oracleData\)/order.oracleData/g' contracts/StopLimitOrder.sol
 perl -0777 -i -pe 's/function get\(bytes calldata data\)/function get\(uint data\)/g' contracts/interfaces/IOracle.sol
+perl -0777 -i -pe 's/function get\(bytes calldata data\)/function get\(uint data\)/g' spec/harness/IOracle.sol
 
 # simplify digest
 perl -0777 -i -pe 's/function _getDigest\(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut\) internal/function _getDigest\(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut\) virtual internal view returns \(bytes32\) {
