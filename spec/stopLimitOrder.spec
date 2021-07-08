@@ -291,6 +291,7 @@ rule preserveAssets(method f) filtered { f ->
 
 	uint256 expectedAmountOut;
 
+	require amountInHarness() != 0; // TODO: add another rule to make this require safe
 	expectedAmountOut = amountOutHarness() * amountToFillHarness() / amountInHarness();
 	
 	uint256 _bentoBalanceIn = bentoBalanceOf(tokenInHarness(), makerHarness());
