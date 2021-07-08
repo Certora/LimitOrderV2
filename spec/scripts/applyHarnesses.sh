@@ -1,8 +1,8 @@
 # SafeTransfer simplification
 perl -0777 -i -pe 's/safeT/t/g' contracts/StopLimitOrder.sol
 
-# Add transfer function declaration (uncomment when running for the first time)
-perl -0777 -i -pe 's/\}/    function transfer\(address to, uint256 amount\) external;\n    function transferFrom\(address from, address to, uint256 amount\) external;\n\}/g' node_modules/@boringcrypto/boring-solidity/contracts/interfaces/IERC20.sol
+# Add transfer function declaration 
+perl -0777 -i -pe 's/;\s*\}/;\n    function transfer\(address to, uint256 amount\) external;\n    function transferFrom\(address from, address to, uint256 amount\) external;\/\/ done \n\}/g' node_modules/@boringcrypto/boring-solidity/contracts/interfaces/IERC20.sol
 
 # virtualize functions for BentoBoxV1
 perl -0777 -i -pe 's/public payable \{/public virtual payable \{/g' node_modules/@sushiswap/bentobox-sdk/contracts/BentoBoxV1.sol
@@ -28,7 +28,7 @@ perl -0777 -i -pe 's/external /public /g' contracts/StopLimitOrder.sol
 perl -0777 -i -pe 's/bytes oracleData;/uint oracleData;/g' contracts/StopLimitOrder.sol
 perl -0777 -i -pe 's/keccak256\(order.oracleData\)/order.oracleData/g' contracts/StopLimitOrder.sol
 perl -0777 -i -pe 's/function get\(bytes calldata data\)/function get\(uint data\)/g' contracts/interfaces/IOracle.sol
-perl -0777 -i -pe 's/function get\(bytes calldata data\)/function get\(uint data\)/g' spec/harness/IOracle.sol
+perl -0777 -i -pe 's/function get\(bytes calldata data\)/function get\(uint data\)/g' spec/harness/OracleHarness.sol
 
 # simplify digest
 perl -0777 -i -pe 's/function _getDigest\(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut\) internal/function _getDigest\(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut\) virtual internal view returns \(bytes32\) {
