@@ -74,7 +74,7 @@ methods {
 	computeAmountOut(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled)
 							returns (uint256) => DISPATCHER(true)
 	ec_recover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) 
-						returns (address) => DISPATCHER(true)
+						returns (address) => NONDET
 
 	// getters 	
 	bentoBalanceOf(address, address) returns (uint256) envfree
@@ -112,6 +112,7 @@ methods {
 ////////////////////////////////////////////////////////////////////////////
 ghost digestGhost(address, address, address, uint256, uint256, address, uint256, 
 				uint256, uint256, address, uint256) returns bytes32;
+
 
 ////////////////////////////////////////////////////////////////////////////
 //                               Invariants                               //
