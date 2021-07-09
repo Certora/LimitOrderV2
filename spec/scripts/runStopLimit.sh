@@ -4,5 +4,5 @@ certoraRun spec/harness/StopLimitOrderHarness.sol spec/harness/SimpleBentoBox.so
     --cache SushiLimitOrder \
     --link StopLimitOrderHarness:bentoBox=SimpleBentoBox \
     --link SimpleOrderReceiver:bentoBox=SimpleBentoBox \
-    --settings -enableStorageAnalysis=true,-ignoreViewFunctions,-assumeUnwindCond,-postProcessCounterExamples=true \
+    --settings -enableStorageAnalysis=true,-ignoreViewFunctions,-assumeUnwindCond,-postProcessCounterExamples=true,-optimisticReturnsize=true \
     --msg "StopLimitOrder all rules" --staging shelly/robustnessAndCalldatasize

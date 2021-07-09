@@ -11,6 +11,7 @@ using SimpleOrderReceiver as receiver
 using SimpleBentoBox as bentoBox
 using DummyERC20A as tokenA
 using DummyERC20B as tokenB
+using Simplifications as simplified
 
 ////////////////////////////////////////////////////////////////////////////
 //                                Methods                                 //
@@ -40,6 +41,9 @@ methods {
 	receiverHarness() returns (address) envfree
 	tokenInHarness() returns (address) envfree
 	tokenOutHarness() returns (address) envfree
+
+	makerHarnessOther() returns (address) envfree
+	tokenOutHarnessOther() returns (address) envfree
 
 	// signatures
 	fillOrder((address, uint256, uint256, address, uint256, uint256, uint256, address,
@@ -71,8 +75,8 @@ methods {
 											    amountIn, amountOut, recipient, 
 												startTime, endTime, stopPrice, 
 												oracleAddress, oracleData)
-	computeAmountOut(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled)
-							returns (uint256) => DISPATCHER(true)
+	simplified.computeAmountOut(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled)
+							returns (uint256) envfree => DISPATCHER(true)
 	ec_recover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) 
 						returns (address) => NONDET
 
@@ -113,7 +117,6 @@ methods {
 ghost digestGhost(address, address, address, uint256, uint256, address, uint256, 
 				uint256, uint256, address, uint256) returns bytes32;
 
-
 ////////////////////////////////////////////////////////////////////////////
 //                               Invariants                               //
 ////////////////////////////////////////////////////////////////////////////
@@ -139,65 +142,37 @@ rule feesCollectedNeverZero(method f, address token) {
 	assert feesCollected(token) > 0;
 }
 
-// fill order functions are additive
-// rule additivityOfFillOrderFunctions(method f) filtered { f -> 
-// 		f.selector == fillOrder((address, uint256, uint256, address, uint256, uint256, uint256,
-// 		 						 address, uint256, uint256, uint8, bytes32, bytes32), address, address,
-// 								 address, bytes).selector ||
-// 		f.selector == fillOrderOpen((address, uint256, uint256, address, uint256, uint256, uint256,
-// 								     address, uint256, uint256, uint8, bytes32, bytes32), address, 
-// 									 address, address, bytes).selector /*||
-// 		f.selector == batchFillOrder((address, uint256, uint256, address, uint256, uint256,
-// 									  uint256, address, uint256, uint256, uint8, bytes32,
-// 									  bytes32)[], address, address, address, bytes).selector || 
-// 		f.selector == batchFillOrderOpen((address, uint256, uint256, address, uint256, uint256, uint256,
-// 	  					address, uint256, uint256, uint8, bytes32, bytes32)[], address,
-// 						address, address, bytes)*/ } { // TODO: If we are able to make batchFillOrder work, uncomment them
-// 	env e;
-
-// 	// recording the entire state of the contract
-// 	storage initStorage = lastStorage;
-
-// 	// filling x and y in two steps (not possible without making the harness ugly)
-	
-// 	// recording state when filled using two steps
-// 	// spitSenarioOrderStatus
-// 	// splitSenarioFeesCollected
-
-// 	// overflow prevention
-
-// 	// filling x + y in one step using initStorage (not possible)
-	
-// 	// recording state when commited using one step
-// 	// sumSenarioOrderStatus
-// 	// sumSenarioFeesCollected
-
-// 	// asserting that filling using two steps is the same as
-// 	// filling using one step
-// 	assert(spitSenarioOrderStatus == sumSenarioOrderStatus, 
-// 		   "fillOrder not additive on orderStatus");
-
-// 	assert(splitSenarioFeesCollected == sumSenarioFeesCollected, 
-// 		   "fillOrder not additive on feesCollected");
-// }
-
 // Any operation shouldn’t affect other fill orders
-// rule noChangeToOtherOrders(method f) {
-// 	env e;
+rule noChangeToOtherOrders(method f) {
+	env e;
 
-// 	calldataarg digestArgsOther;
-// 	bytes32 otherDigest = getDigest(e, digestArgsOther);
+	calldataarg digestArgs;
+	bytes32 digest = getDigest(e, digestArgs);
 
-// 	bool _isOtherCancelled = cancelledOrder(makerHarness(), otherDigest);
-// 	uint256 _otherOrderStatus = orderStatus(otherDigest);
-// 	uint256 _otherTokenOutFeesCollected = feesCollected(tokenOutHarness());
+	calldataarg digestArgsOther;
+	bytes32 otherDigest = getDigestOther(e, digestArgsOther);
 
-// 	// Call f with digest order
+	require digest != otherDigest;
 
-// 	// record the other's state after
+	// record other's state before
+	bool _isOtherCancelled = cancelledOrder(makerHarnessOther(), otherDigest);
+	uint256 _otherOrderStatus = orderStatus(otherDigest);
+	uint256 _otherTokenOutFeesCollected = feesCollected(tokenOutHarnessOther());
 
-// 	// compare
-// }
+	// Call f with digest order
+	calldataarg args;
+	f(e, args);
+
+	// record other's state after
+	bool isOtherCancelled_ = cancelledOrder(makerHarnessOther(), otherDigest);
+	uint256 otherOrderStatus_ = orderStatus(otherDigest);
+	uint256 otherTokenOutFeesCollected_ = feesCollected(tokenOutHarnessOther());
+
+	// compare
+	assert _isOtherCancelled == isOtherCancelled_;
+	assert _otherOrderStatus == otherOrderStatus_;
+	assert _otherTokenOutFeesCollected == otherTokenOutFeesCollected_;
+}
 
 /*	
 	Rule: Integrity of Canceling the flag is on.  
@@ -209,10 +184,6 @@ rule feesCollectedNeverZero(method f, address token) {
 */
 rule cancelTurnsOnFlag() {
 	env e;
-
-	// making sure that the msg.sender is the maker of the order, since the
-	// maker of the contract can only cancel the order
-	require makerHarness() == e.msg.sender;
 
 	calldataarg digestArgs;
 	bytes32 digest = getDigest(e, digestArgs);
@@ -289,11 +260,6 @@ rule preserveAssets(method f) filtered { f ->
 	require tokenInHarness() != tokenOutHarness();
 	require makerHarness() != recipientHarness();
 	require makerHarness() != currentContract;
-
-	uint256 expectedAmountOut;
-
-	require amountInHarness() != 0; // TODO: add another rule to make this require safe
-	expectedAmountOut = amountOutHarness() * amountToFillHarness() / amountInHarness();
 	
 	uint256 _bentoBalanceIn = bentoBalanceOf(tokenInHarness(), makerHarness());
 	uint256 _bentoBalanceOut = bentoBalanceOf(tokenOutHarness(), recipientHarness());
@@ -307,8 +273,10 @@ rule preserveAssets(method f) filtered { f ->
 	uint256 bentoBalanceOut_ = bentoBalanceOf(tokenOutHarness(), recipientHarness());
 	uint256 bentoCurrContractBalance_ = bentoBalanceOf(tokenOutHarness(), currentContract);
 
+	uint256 expectedAmountOut = simplified.computeAmountOut(amountInHarness(), amountOutHarness(), amountToFillHarness());
+
 	assert(bentoBalanceIn_ >= _bentoBalanceIn - bentoBox.toShare(tokenInHarness(),
-	        amountToFillHarness(), false), "tokenIn assets not preserved");	
+	        amountToFillHarness(), false), "tokenIn assets not preserved");
 	assert(bentoBalanceOut_ >= _bentoBalanceOut + bentoBox.toShare(tokenOutHarness(),
 	    	expectedAmountOut, false), "tokenOut assets not preserved");
 	assert(bentoCurrContractBalance_ >= _bentoCurrContractBalance, "StopLimitOrder balance decreased");
@@ -336,24 +304,6 @@ rule orderStatusLeAmountToFill(method f) {
 	uint256 orderStatusAfter = orderStatus(digest);
 	
 	assert orderStatusAfter <= amountInHarness();
-}
-
-// if an order was partially filled, cannot fill it more than amountIn - alreadyFilled
-rule checkOrderStatus() {
-	env e;
-
-	calldataarg digestArgs;
-	bytes32 digest = getDigest(e, digestArgs);
-
-	uint256 alreadyFilled = orderStatus(digest);
-
-	require amountToFillHarness() + alreadyFilled > amountInHarness();
-
-	// this should revert
-	calldataarg args;
-    fillOrder(e, args);
-
-	assert lastReverted;
 }
 
 ////////////////////////////////////////////////////////////////////////////

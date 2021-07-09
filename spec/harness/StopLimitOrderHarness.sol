@@ -24,6 +24,10 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	IERC20 public tokenOutHarness;
 	ILimitOrderReceiver public receiverHarness;
 
+	// ONLY FOR THE RULE noChangeToOtherOrders
+	address public makerHarnessOther;
+	IERC20 public tokenOutHarnessOther;
+
 	////////////////////////////////////////////////////////////
 	//                 constructors and inits                 //
 	////////////////////////////////////////////////////////////
@@ -38,8 +42,20 @@ contract StopLimitOrderHarness is StopLimitOrder {
 	}
 
 	function getDigest(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut)
-					   public view returns (bytes32) { 
+					   public view returns (bytes32) {
 		_getDigest(order, tokenIn, tokenOut);
+	}
+
+	function getDigestOther(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut)
+                       public view returns (bytes32) {
+		require(order.maker != makerHarness && order.maker == makerHarnessOther); 
+		require(order.v != vHarness);
+		require(order.r != rHarness);
+		require(order.s != sHarness);
+		require(tokenIn != tokenInHarness);
+		require(tokenOut != tokenOutHarness && tokenOut == tokenOutHarnessOther);
+
+		super._getDigest(order, tokenIn, tokenOut);
 	}
 
 	function setStopPrice(uint256 val) public {
