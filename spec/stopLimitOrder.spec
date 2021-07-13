@@ -43,7 +43,6 @@ methods {
 	tokenOutHarness() returns (address) envfree
 
 	makerHarnessOther() returns (address) envfree
-	tokenOutHarnessOther() returns (address) envfree
 
 	// signatures
 	fillOrder((address, uint256, uint256, address, uint256, uint256, uint256, address,
@@ -76,7 +75,7 @@ methods {
 												startTime, endTime, stopPrice, 
 												oracleAddress, oracleData)
 	simplified.computeAmountOut(uint256 amountIn, uint256 amountOut, uint256 amountToBeFilled)
-							returns (uint256) envfree => DISPATCHER(true)
+							returns (uint256) envfree => DISPATCHER(true) UNRESOLVED
 	ec_recover(bytes32 digest, uint8 v, bytes32 r, bytes32 s) 
 						returns (address) => NONDET
 
@@ -91,23 +90,23 @@ methods {
 
 	// receiver
 	onLimitOrder(address tokenIn, address tokenOut, uint256 amountIn,
-			     uint256 amountMinOut, bytes data) => DISPATCHER(true)
+			     uint256 amountMinOut, bytes data) => DISPATCHER(true) UNRESOLVED
 
 	// bentobox
 	toAmount(address token, uint256 share, bool roundUp)
-		returns (uint256) envfree => DISPATCHER(true)
+		returns (uint256) envfree => DISPATCHER(true) UNRESOLVED
 	toShare(address token, uint256 amount, bool roundUp) 
-		returns (uint256) envfree => DISPATCHER(true)
+		returns (uint256) envfree => DISPATCHER(true) UNRESOLVED
 	registerProtocol() => NONDET
 
 	// oracle
 	get(uint) returns (bool, uint256) => NONDET
 
 	// ERC20
-	tokenA.balanceOf(address) returns (uint256) => DISPATCHER(true)
-	tokenB.balanceOf(address) returns (uint256) => DISPATCHER(true)
-	tokenA.transfer(address, uint256) => DISPATCHER(true)
-	tokenB.transfer(address, uint256) => DISPATCHER(true)
+	tokenA.balanceOf(address) returns (uint256) => DISPATCHER(true) UNRESOLVED
+	tokenB.balanceOf(address) returns (uint256) => DISPATCHER(true) UNRESOLVED
+	tokenA.transfer(address, uint256) => DISPATCHER(true) UNRESOLVED
+	tokenB.transfer(address, uint256) => DISPATCHER(true) UNRESOLVED
 	permit(address from, address to, uint amount, uint deadline, uint8 v, bytes32 r, bytes32 s) => NONDET
 }
 
@@ -146,18 +145,17 @@ rule feesCollectedNeverZero(method f, address token) {
 rule noChangeToOtherOrders(method f) {
 	env e;
 
-	calldataarg digestArgs;
-	bytes32 digest = getDigest(e, digestArgs);
+	// calldataarg digestArgs;
+	// bytes32 digest = getDigest(e, digestArgs);
 
 	calldataarg digestArgsOther;
 	bytes32 otherDigest = getDigestOther(e, digestArgsOther);
 
-	require digest != otherDigest;
+	// require digest != otherDigest;
 
 	// record other's state before
 	bool _isOtherCancelled = cancelledOrder(makerHarnessOther(), otherDigest);
 	uint256 _otherOrderStatus = orderStatus(otherDigest);
-	uint256 _otherTokenOutFeesCollected = feesCollected(tokenOutHarnessOther());
 
 	// Call f with digest order
 	calldataarg args;
@@ -166,13 +164,23 @@ rule noChangeToOtherOrders(method f) {
 	// record other's state after
 	bool isOtherCancelled_ = cancelledOrder(makerHarnessOther(), otherDigest);
 	uint256 otherOrderStatus_ = orderStatus(otherDigest);
-	uint256 otherTokenOutFeesCollected_ = feesCollected(tokenOutHarnessOther());
 
 	// compare
 	assert _isOtherCancelled == isOtherCancelled_;
 	assert _otherOrderStatus == otherOrderStatus_;
-	assert _otherTokenOutFeesCollected == otherTokenOutFeesCollected_;
 }
+
+// rule simple() {
+// 	env e;
+
+// 	calldataarg digestArgs;
+// 	bytes32 digest = getDigest(e, digestArgs);
+
+// 	calldataarg digestArgsOther;
+// 	bytes32 otherDigest = getDigestOther(e, digestArgsOther);
+
+// 	assert digest == otherDigest;
+// }
 
 /*	
 	Rule: Integrity of Canceling the flag is on.  
@@ -257,16 +265,22 @@ rule preserveAssets(method f) filtered { f ->
 		f.selector == fillOrderOpen((address, uint256, uint256, address, uint256, uint256, uint256,
 								     address, uint256, uint256, uint8, bytes32, bytes32), address, 
 									 address, address, bytes).selector } {
+	env e;
+
 	require tokenInHarness() != tokenOutHarness();
 	require makerHarness() != recipientHarness();
 	require makerHarness() != currentContract;
+	require recipientHarness() != bentoBox;
+
+	calldataarg digestArgs;
+	bytes32 digest = getDigest(e, digestArgs);
+	// require amountToFillHarness() + orderStatus(digest) <= amountInHarness();
 	
 	uint256 _bentoBalanceIn = bentoBalanceOf(tokenInHarness(), makerHarness());
 	uint256 _bentoBalanceOut = bentoBalanceOf(tokenOutHarness(), recipientHarness());
 	uint256 _bentoCurrContractBalance = bentoBalanceOf(tokenOutHarness(), currentContract);
 
 	calldataarg args;
-	env e;
 	f(e, args);
 
 	uint256 bentoBalanceIn_ = bentoBalanceOf(tokenInHarness(), makerHarness());
@@ -275,10 +289,13 @@ rule preserveAssets(method f) filtered { f ->
 
 	uint256 expectedAmountOut = simplified.computeAmountOut(amountInHarness(), amountOutHarness(), amountToFillHarness());
 
+	// maker's tokenIn balance should decrease
 	assert(bentoBalanceIn_ >= _bentoBalanceIn - bentoBox.toShare(tokenInHarness(),
 	        amountToFillHarness(), false), "tokenIn assets not preserved");
+	// recepient's (generally maker or maker's friend) tokenOut should balance should increase
 	assert(bentoBalanceOut_ >= _bentoBalanceOut + bentoBox.toShare(tokenOutHarness(),
 	    	expectedAmountOut, false), "tokenOut assets not preserved");
+	// the protocol shouldn't loose any assets
 	assert(bentoCurrContractBalance_ >= _bentoCurrContractBalance, "StopLimitOrder balance decreased");
 }
 
