@@ -42,14 +42,14 @@ contract StopLimitOrderHarness is StopLimitOrder {
 
 	function getDigest(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut)
 					   public view returns (bytes32) {
-		_getDigest(order, tokenIn, tokenOut);
+		return _getDigest(order, tokenIn, tokenOut);
 	}
 
 	function getDigestOther(OrderArgs memory order, IERC20 tokenIn, IERC20 tokenOut)
                        public view returns (bytes32) {
 		require(order.maker == makerHarnessOther);
 
-		super._getDigest(order, tokenIn, tokenOut);
+		return super._getDigest(order, tokenIn, tokenOut);
 	}
 
 	function setStopPrice(uint256 val) public {
@@ -65,7 +65,7 @@ contract StopLimitOrderHarness is StopLimitOrder {
 		require(tokenIn == tokenInHarness);
 		require(tokenOut == tokenOutHarness);
 
-		super._getDigest(order, tokenIn, tokenOut);
+		return super._getDigest(order, tokenIn, tokenOut);
 	}
 
 	function fillOrder(
