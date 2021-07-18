@@ -3,8 +3,8 @@
     with the Certora prover. For more information,
 	visit: https://www.certora.com/
 
-    This file is run with scripts/...
-	Assumptions:
+    This file is run with spec/scripts/runStopLimit.sh
+	
 */
 
 using SimpleOrderReceiver as receiver
@@ -103,10 +103,8 @@ methods {
 	get(uint) returns (bool, uint256) => NONDET
 
 	// ERC20
-	tokenA.balanceOf(address) returns (uint256) => DISPATCHER(true) UNRESOLVED
-	tokenB.balanceOf(address) returns (uint256) => DISPATCHER(true) UNRESOLVED
-	tokenA.transfer(address, uint256) => DISPATCHER(true) UNRESOLVED
-	tokenB.transfer(address, uint256) => DISPATCHER(true) UNRESOLVED
+	balanceOf(address) returns (uint256) => DISPATCHER(true) UNRESOLVED
+	transfer(address, uint256) => DISPATCHER(true) UNRESOLVED
 	permit(address from, address to, uint amount, uint deadline, uint8 v, bytes32 r, bytes32 s) => NONDET
 }
 
@@ -145,21 +143,26 @@ rule feesCollectedNeverZero(method f, address token) {
 rule noChangeToOtherOrders(method f) {
 	env e;
 
-	// calldataarg digestArgs;
-	// bytes32 digest = getDigest(e, digestArgs);
+	calldataarg digestArgs;
+  	bytes32 digest = getDigest(e, digestArgs);
 
 	calldataarg digestArgsOther;
 	bytes32 otherDigest = getDigestOther(e, digestArgsOther);
 
-	// require digest != otherDigest;
+	require digest != otherDigest;
 
 	// record other's state before
 	bool _isOtherCancelled = cancelledOrder(makerHarnessOther(), otherDigest);
 	uint256 _otherOrderStatus = orderStatus(otherDigest);
 
 	// Call f with digest order
-	calldataarg args;
-	f(e, args);
+	if (f.selector == cancelOrder(bytes32).selector) {
+		cancelOrder(e,digest);
+	}
+	else {
+		calldataarg args;
+		f(e, args);
+	}
 
 	// record other's state after
 	bool isOtherCancelled_ = cancelledOrder(makerHarnessOther(), otherDigest);
@@ -170,17 +173,6 @@ rule noChangeToOtherOrders(method f) {
 	assert _otherOrderStatus == otherOrderStatus_;
 }
 
-// rule simple() {
-// 	env e;
-
-// 	calldataarg digestArgs;
-// 	bytes32 digest = getDigest(e, digestArgs);
-
-// 	calldataarg digestArgsOther;
-// 	bytes32 otherDigest = getDigestOther(e, digestArgsOther);
-
-// 	assert digest == otherDigest;
-// }
 
 /*	
 	Rule: Integrity of Canceling the flag is on.  
@@ -274,7 +266,6 @@ rule preserveAssets(method f) filtered { f ->
 
 	calldataarg digestArgs;
 	bytes32 digest = getDigest(e, digestArgs);
-	// require amountToFillHarness() + orderStatus(digest) <= amountInHarness();
 	
 	uint256 _bentoBalanceIn = bentoBalanceOf(tokenInHarness(), makerHarness());
 	uint256 _bentoBalanceOut = bentoBalanceOf(tokenOutHarness(), recipientHarness());
@@ -289,10 +280,10 @@ rule preserveAssets(method f) filtered { f ->
 
 	uint256 expectedAmountOut = simplified.computeAmountOut(amountInHarness(), amountOutHarness(), amountToFillHarness());
 
-	// maker's tokenIn balance should decrease
+	// maker's tokenIn balance should decrease at most by amountToFill
 	assert(bentoBalanceIn_ >= _bentoBalanceIn - bentoBox.toShare(tokenInHarness(),
 	        amountToFillHarness(), false), "tokenIn assets not preserved");
-	// recepient's (generally maker or maker's friend) tokenOut should balance should increase
+	// recipient's (generally maker or maker's friend) tokenOut should balance should increase
 	assert(bentoBalanceOut_ >= _bentoBalanceOut + bentoBox.toShare(tokenOutHarness(),
 	    	expectedAmountOut, false), "tokenOut assets not preserved");
 	// the protocol shouldn't loose any assets
@@ -322,56 +313,3 @@ rule orderStatusLeAmountToFill(method f) {
 	
 	assert orderStatusAfter <= amountInHarness();
 }
-
-////////////////////////////////////////////////////////////////////////////
-//                                Temporary                               //
-////////////////////////////////////////////////////////////////////////////
-/*
-// Check Bug
-// A livness rule should have been able to find this.
-rule CheckBug() {
-	address recipient = 1;
-	address maker = 2;
-	address tokenIn = 3;
-	address tokenOut = 4;
-	uint256 amountIn = 100;
-	uint256 amountToFill = amountIn;	
-	uint256 amountOut = 101;
-	prepare(maker, amountIn, amountOut, recipient, amountToFill, tokenIn, tokenOut);
-	require feesCollected(tokenOut) == 0;
-	require bentoBalanceOf(tokenOut, currentContract) == 0;
-
-	// CHANGED SIMPLELIMITORDERRECEIVER
-	calldataarg args;
-	env e;
-	fillOrderHarness(e, args);
-
-	assert(false);
-}
-*/
-
-// I would also do a require in the code after onLimitOrder to see it doesn't take too much.
-// especially for melicious ones.
-
-// two orders stuff in batch..
-
-// need a liveness version for everything: if conditions are good enough, nothing will fail..
-
-// out of time order fails
-
-// change ratio. <----------------- important 
-
-// The batch are strange - even if one fails (because of stop or limit) they all fail.
-
-// should think of what happens with malicious receiver - 
-// basically we don't need to protect maker and reciever, but do need to protect everyone else, no?
-
-// To be able to make the transfer in _preOrder, the maker approves transfers to the reciever, but this is unlimited... is that ok?
-// This means that a malicious receiver can take more from the maker. But I am guessing that it is his problem.
-
-// when ratio changes to 2 or more, should check the rounding, and especially that one does not pay more than he wanted, and does not get less than he wanted to get.
-
-// Have to think about this keeping of 1 balance of currentContract. Can't it be taken away?
-
-// have to check the rounding thing.. because only in one place the contract rounds up - in the require. So there may be a liveness problem.
-// Quite sure this is a bug. - but that has to do with the real sushiswapLimitOrder which returns the exact number.
